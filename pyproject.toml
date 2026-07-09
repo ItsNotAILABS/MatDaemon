@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "matdaemon"
-version = "0.3.0"
+version = "0.3.1"
 description = "AI-native matrix compute SDK, daemon, CLI, API, MCP server, and GitHub-callable benchmark platform."
 readme = "README.md"
 requires-python = ">=3.9"
