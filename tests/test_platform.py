@@ -14,6 +14,7 @@ def test_platform_manifest_contains_product_surfaces():
     assert manifest["status"] == "production-beta"
     assert {"sdk", "api", "mcp", "github-action", "cuda-backend"}.issubset(surface_ids)
     assert any(gate["gate"] == "benchmark" for gate in manifest["proof_gates"])
+    assert "PyPI publishing is pending" in manifest["install"]["pypi_status"]
 
 
 def test_sdk_exports_platform_manifest():
