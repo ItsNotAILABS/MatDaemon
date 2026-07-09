@@ -27,7 +27,7 @@ DType = Literal["float32", "float64"]
 ToolHandler = Callable[[dict[str, Any]], dict[str, Any]]
 
 PROTOCOL_VERSION = "2024-11-05"
-SERVER_INFO = {"name": "MatDaemon", "version": "0.3.0"}
+SERVER_INFO = {"name": "MatDaemon", "version": "0.3.1"}
 
 
 def _json_text(payload: dict[str, Any]) -> dict[str, Any]:
