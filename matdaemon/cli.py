@@ -59,6 +59,15 @@ def _cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_mcp(args: argparse.Namespace) -> int:
+    try:
+        from .mcp_server import main as run_mcp
+    except Exception as exc:
+        raise RuntimeError("Install MCP support with `pip install matdaemon[mcp]`.") from exc
+    run_mcp()
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="MatDaemon AI matrix compute platform")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -83,6 +92,9 @@ def build_parser() -> argparse.ArgumentParser:
     serve_parser.add_argument("--port", type=int, default=8000)
     serve_parser.add_argument("--reload", action="store_true")
     serve_parser.set_defaults(func=_cmd_serve)
+
+    mcp_parser = subparsers.add_parser("mcp", help="Run the MatDaemon MCP server over stdio")
+    mcp_parser.set_defaults(func=_cmd_mcp)
     return parser
 
 
