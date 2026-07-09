@@ -1,4 +1,6 @@
 # MatDaemon
+
+![MatDaemon](https://raw.githubusercontent.com/YOURUSERNAME/matdaemon/main/banner.png)   # optional later
 MatDaemon – High-Performance Vectorized Matrix Multiplication Daemon. Memory-safe, lightning-fast matrix operations in the background. Built for scalable agentic AI and large-scale computations.
 
 Reusable production backend module for sovereign/recursive AI systems, multi-agent architectures, and ML pipelines. Solves the real-world pain of OOM errors on big matrices while delivering near-native NumPy speed.
