@@ -10,7 +10,7 @@ def test_platform_manifest_contains_product_surfaces():
     surface_ids = {surface["id"] for surface in manifest["surfaces"]}
 
     assert manifest["name"] == "MatDaemon"
-    assert manifest["version"] == "0.3.0"
+    assert manifest["version"] == "0.3.1"
     assert manifest["status"] == "production-beta"
     assert {"sdk", "api", "mcp", "github-action", "cuda-backend"}.issubset(surface_ids)
     assert any(gate["gate"] == "benchmark" for gate in manifest["proof_gates"])
