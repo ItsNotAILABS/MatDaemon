@@ -16,7 +16,7 @@ def _package_version() -> str:
     try:
         return metadata.version("matdaemon")
     except metadata.PackageNotFoundError:
-        return "0.3.1"
+        return "0.3.2"
 
 
 MCP_TOOLS = [
@@ -65,6 +65,14 @@ PLATFORM_SURFACES: list[dict[str, str]] = [
         "value": "Expose synchronous and async matrix jobs over a small FastAPI service.",
     },
     {
+        "id": "cloud-tool-api",
+        "title": "HTTP tool API",
+        "entrypoint": "GET /v1/tools and POST /v1/tools/{tool_name}",
+        "contract": ", ".join(MCP_TOOLS),
+        "operator": "cloud platform, hosted agent, serverless workflow, external automation",
+        "value": "Expose the same bounded AI tool suite over HTTP for platforms that cannot spawn a local MCP stdio process.",
+    },
+    {
         "id": "mcp",
         "title": "Self-contained MCP server",
         "entrypoint": "matdaemon mcp",
@@ -91,19 +99,20 @@ PLATFORM_SURFACES: list[dict[str, str]] = [
 ]
 
 RUNTIME_STACK: list[dict[str, str]] = [
-    {"layer": "client", "role": "SDK, CLI, HTTP, MCP, or GitHub Action caller"},
-    {"layer": "contracts", "role": "typed payloads, platform manifest, use-case registry, benchmark profiles"},
-    {"layer": "orchestration", "role": "MatDaemon queue, API job lifecycle, CLI dispatch, MCP JSON-RPC tools"},
+    {"layer": "client", "role": "SDK, CLI, HTTP, MCP, cloud tool API, or GitHub Action caller"},
+    {"layer": "contracts", "role": "typed payloads, platform manifest, use-case registry, benchmark profiles, MCP tool schemas"},
+    {"layer": "orchestration", "role": "MatDaemon queue, API job lifecycle, CLI dispatch, MCP JSON-RPC tools, HTTP tool calls"},
     {"layer": "compute", "role": "auto, numpy, tiled CPU, or optional CUDA RawKernel backend"},
-    {"layer": "proof", "role": "unit tests, API lifecycle tests, MCP tool tests, benchmark JSON, benchmark Markdown, CI artifacts"},
+    {"layer": "proof", "role": "unit tests, API lifecycle tests, MCP tool tests, HTTP tool API tests, benchmark JSON, benchmark Markdown, CI artifacts"},
 ]
 
 PROOF_GATES: list[dict[str, str]] = [
     {"gate": "correctness", "evidence": "matrix outputs validated against NumPy-compatible expected results"},
-    {"gate": "platform", "evidence": "health, platform manifest, use cases, sync jobs, and async jobs covered by API tests"},
+    {"gate": "platform", "evidence": "health, platform manifest, use cases, sync jobs, async jobs, and HTTP tools covered by API tests"},
     {"gate": "agent surface", "evidence": "self-contained MCP server exposes bounded JSON-RPC tools without external MCP dependencies"},
+    {"gate": "cloud surface", "evidence": "HTTP tool API exposes the MCP tool suite to hosted platforms without shell access"},
     {"gate": "benchmark", "evidence": "benchmark suite writes JSON and Markdown artifacts and supports strict failure mode"},
-    {"gate": "packaging", "evidence": "pyproject metadata, optional extras, console script, Dockerfile, and GitHub Action surface"},
+    {"gate": "packaging", "evidence": "pyproject metadata, optional extras, console script, Dockerfile, publish workflow, and GitHub Action surface"},
 ]
 
 
@@ -118,6 +127,11 @@ def get_platform_manifest() -> dict[str, Any]:
         "runtime_stack": RUNTIME_STACK,
         "use_cases": USE_CASES,
         "mcp_tools": MCP_TOOLS,
+        "http_tool_api": {
+            "list_tools": "GET /v1/tools",
+            "call_tool": "POST /v1/tools/{tool_name}",
+            "payload_shape": {"arguments": "object"},
+        },
         "proof_gates": PROOF_GATES,
         "install": {
             "source": "git clone https://github.com/ItsNotAILABS/MatDaemon.git && cd MatDaemon && python -m pip install -e .",

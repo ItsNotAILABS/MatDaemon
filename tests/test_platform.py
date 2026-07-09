@@ -10,10 +10,12 @@ def test_platform_manifest_contains_product_surfaces():
     surface_ids = {surface["id"] for surface in manifest["surfaces"]}
 
     assert manifest["name"] == "MatDaemon"
-    assert manifest["version"] == "0.3.1"
+    assert manifest["version"] == "0.3.2"
     assert manifest["status"] == "production-beta"
-    assert {"sdk", "api", "mcp", "github-action", "cuda-backend"}.issubset(surface_ids)
+    assert {"sdk", "api", "cloud-tool-api", "mcp", "github-action", "cuda-backend"}.issubset(surface_ids)
     assert any(gate["gate"] == "benchmark" for gate in manifest["proof_gates"])
+    assert any(gate["gate"] == "cloud surface" for gate in manifest["proof_gates"])
+    assert manifest["http_tool_api"]["list_tools"] == "GET /v1/tools"
     assert "PyPI publishing is pending" in manifest["install"]["pypi_status"]
 
 
