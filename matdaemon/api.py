@@ -10,11 +10,12 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Dict, Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 import numpy as np
 
 from .matdaemon import matmul
+from .mcp_server import TOOL_HANDLERS, TOOLS
 from .platform import get_platform_manifest
 from .use_cases import USE_CASES
 
@@ -70,6 +71,10 @@ class JobStatusResponse(BaseModel):  # type: ignore[misc]
     completed_at: Optional[float] = None
 
 
+class ToolCallPayload(BaseModel):  # type: ignore[misc]
+    arguments: dict[str, Any] = {}
+
+
 @dataclass
 class JobRecord:
     job_id: str
@@ -120,7 +125,7 @@ def create_app() -> "FastAPI":
 
     app = FastAPI(
         title="MatDaemon API",
-        version="0.3.1",
+        version="0.3.2",
         description="Matrix compute platform for AI agents, RAG systems, simulations, and automation workers.",
     )
     state = PlatformState(started_at=time.time())
@@ -160,6 +165,20 @@ def create_app() -> "FastAPI":
     @app.get("/v1/platform")
     def platform_manifest() -> dict:
         return get_platform_manifest()
+
+    @app.get("/v1/tools")
+    def list_tools() -> dict:
+        return {"tools": TOOLS}
+
+    @app.post("/v1/tools/{tool_name}")
+    def call_tool(tool_name: str, payload: ToolCallPayload) -> dict:
+        handler = TOOL_HANDLERS.get(tool_name)
+        if handler is None:
+            raise HTTPException(status_code=404, detail=f"Unknown tool: {tool_name}")
+        try:
+            return {"tool": tool_name, "result": handler(payload.arguments)}
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.get("/v1/use-cases")
     def list_use_cases() -> dict:
