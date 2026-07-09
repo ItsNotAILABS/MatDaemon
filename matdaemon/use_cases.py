@@ -1,5 +1,9 @@
 """AI use-case registry for MatDaemon platform surfaces."""
 
+from __future__ import annotations
+
+from typing import Optional
+
 USE_CASES = [
     {
         "id": "agent-memory-routing",
@@ -39,7 +43,7 @@ USE_CASES = [
 ]
 
 
-def get_use_case(use_case_id: str) -> dict | None:
+def get_use_case(use_case_id: str) -> Optional[dict]:
     for use_case in USE_CASES:
         if use_case["id"] == use_case_id:
             return use_case
