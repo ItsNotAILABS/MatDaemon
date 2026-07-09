@@ -4,20 +4,20 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "matdaemon"
-version = "0.1.0"
-description = "High-Performance Asynchronous Vectorized Matrix Multiplication Daemon for AI and agentic systems"
+version = "0.2.0"
+description = "High-Performance Matrix Multiplication SDK with CPU and CUDA backends"
 readme = "README.md"
 license = {text = "MIT"}
-authors = [{name = "ITSNOTAILABS", email = "ITSNOTAILABS@OUTLOOK.com"}]  # ← update this
+authors = [{name = "ItsNotAILABS"}]
 dependencies = ["numpy>=1.20"]
-keywords = ["matrix-multiplication", "numpy", "daemon", "ai", "agentic-ai", "performance", "linear-algebra"]
+optional-dependencies = {cuda = ["cupy-cuda12x"]}   # or cupy-cuda11x / cupy
+keywords = ["matrix-multiplication", "cuda", "numpy", "ai", "agentic-ai", "performance"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -26,8 +26,8 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/YOURUSERNAME/matdaemon"
-Repository = "https://github.com/YOURUSERNAME/matdaemon"
+Homepage = "https://github.com/ItsNotAILABS/MatDaemon"
+Repository = "https://github.com/ItsNotAILABS/MatDaemon"
 
-[tool.setuptools]
-py-modules = ["matdaemon"]
+[tool.setuptools.packages.find]
+where = ["."]
