@@ -1,0 +1,48 @@
+name: matdaemon-benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Benchmark profile
+        type: choice
+        options: [quick, launch, ai]
+        default: quick
+      backends:
+        description: Space-separated backends
+        type: string
+        default: "numpy tiled"
+      repetitions:
+        description: Repetitions per case
+        type: string
+        default: "1"
+      python-version:
+        description: Python version
+        type: string
+        default: "3.12"
+      strict:
+        description: Fail if any case errors
+        type: boolean
+        default: true
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run MatDaemon benchmark
+        uses: ./.github/actions/matdaemon-benchmark
+        with:
+          profile: ${{ inputs.profile }}
+          backends: ${{ inputs.backends }}
+          repetitions: ${{ inputs.repetitions }}
+          python-version: ${{ inputs.python-version }}
+          strict: ${{ inputs.strict }}
+          output-dir: matdaemon-benchmark-results
+
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: matdaemon-benchmark-results
+          path: matdaemon-benchmark-results
