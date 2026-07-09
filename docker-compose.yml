@@ -1,0 +1,6 @@
+services:
+  matdaemon:
+    build: .
+    ports:
+      - "8000:8000"
+    command: ["matdaemon", "serve", "--host", "0.0.0.0", "--port", "8000"]
