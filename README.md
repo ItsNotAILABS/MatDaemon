@@ -12,12 +12,12 @@
   <a href="https://www.python.org/downloads/"><img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9+-2563eb.svg"></a>
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-f59e0b.svg"></a>
   <a href="#mcp-server"><img alt="MCP server" src="https://img.shields.io/badge/MCP-self--contained-111827.svg"></a>
-  <a href="#http-mini-platform"><img alt="HTTP API" src="https://img.shields.io/badge/API-FastAPI-059669.svg"></a>
+  <a href="#http-tool-api"><img alt="HTTP tool API" src="https://img.shields.io/badge/HTTP-tool_API-0f766e.svg"></a>
   <a href="#github-callable-benchmarks"><img alt="GitHub callable" src="https://img.shields.io/badge/GitHub-callable-24292f.svg"></a>
   <a href="#cuda-backend"><img alt="CUDA optional" src="https://img.shields.io/badge/CUDA-optional-76B900.svg"></a>
 </p>
 
-MatDaemon packages matrix multiplication as a real product surface: Python SDK, async in-process daemon, CLI, HTTP job API, self-contained MCP server, GitHub Action, benchmark harness, Docker API surface, and optional CUDA RawKernel backend.
+MatDaemon packages matrix multiplication as a real product surface: Python SDK, async in-process daemon, CLI, HTTP job API, HTTP tool API, self-contained MCP server, GitHub Action, benchmark harness, Docker API surface, and optional CUDA RawKernel backend.
 
 It is built for AI systems that need a small, callable compute layer without bringing in a full ML framework or inventing a one-off matrix service for every agent, RAG pipeline, simulation, or automation worker.
 
@@ -43,15 +43,15 @@ python -m pip install -e .[dev,api]
 pytest -q
 ```
 
-Optional surfaces:
+After the first PyPI release is published:
 
 ```bash
-python -m pip install -e .[api]   # HTTP API surface
-python -m pip install -e .[mcp]   # self-contained MCP server, no extra runtime deps
-python -m pip install -e .[cuda]  # optional CUDA host support
+python -m pip install matdaemon
+python -m pip install "matdaemon[api]"
+python -m pip install "matdaemon[mcp]"
 ```
 
-Windows ARM note: use `python -m pip install -e .[dev,api]` for development and API tests. The API extra uses plain `uvicorn`, not `uvicorn[standard]`, so it does not require compiling `httptools`. The MCP server is self-contained and does not require the external `mcp` package.
+Windows ARM note: the API extra uses plain `uvicorn`, not `uvicorn[standard]`, so it does not require compiling `httptools`. The MCP server is self-contained and does not require the external `mcp` package.
 
 ## Platform Surfaces
 
@@ -61,6 +61,7 @@ Windows ARM note: use `python -m pip install -e .[dev,api]` for development and 
 | Daemon | `md.MatDaemon()` | queue in-process async matrix jobs |
 | CLI | `matdaemon matmul`, `matdaemon benchmark`, `matdaemon platform` | local operator and CI workflows |
 | HTTP API | `matdaemon serve` | sync and async matrix jobs over FastAPI |
+| HTTP Tool API | `GET /v1/tools`, `POST /v1/tools/{tool_name}` | cloud platforms and hosted agents that cannot spawn stdio MCP |
 | MCP Server | `matdaemon mcp` | tool-calling AI clients and coding platforms over stdio |
 | GitHub Action | `.github/actions/matdaemon-benchmark` | benchmark MatDaemon from GitHub Actions |
 | CUDA Backend | `backend="cuda"` | optional CuPy RawKernel GEMM on GPU hosts |
@@ -118,6 +119,22 @@ Poll and fetch result:
 curl http://localhost:8000/v1/jobs/<job_id>
 curl http://localhost:8000/v1/jobs/<job_id>/result
 ```
+
+## HTTP Tool API
+
+Cloud platforms, hosted agents, and serverless workflows can call the same bounded tool suite over HTTP:
+
+```bash
+curl http://localhost:8000/v1/tools
+```
+
+```bash
+curl -X POST http://localhost:8000/v1/tools/matdaemon_similarity_top_k \
+  -H 'content-type: application/json' \
+  -d '{"arguments": {"queries": [[1, 0]], "candidates": [[1, 0], [0, 1]], "k": 1}}'
+```
+
+See [docs/CLOUD.md](docs/CLOUD.md).
 
 Docker:
 
@@ -218,6 +235,12 @@ When `--output` is provided, MatDaemon writes:
 - `benchmark-results.json`
 - `benchmark-results.md`
 
+## Publish
+
+This repo includes `.github/workflows/publish.yml` for PyPI Trusted Publishing. After the PyPI pending publisher is configured for `ItsNotAILABS/MatDaemon` and workflow `publish.yml`, publish a GitHub release such as `v0.3.2` to upload the package.
+
+See [docs/PUBLISHING.md](docs/PUBLISHING.md).
+
 ## CUDA Backend
 
 MatDaemon preserves the specialized CUDA RawKernel backend under:
@@ -238,9 +261,9 @@ CPU installs stay lightweight. CUDA imports are optional and only required when 
 
 ```mermaid
 flowchart LR
-    clients[SDK / CLI / API / MCP / GitHub Action]
-    contracts[Platform manifest / use cases / benchmark profiles]
-    orchestration[MatDaemon queue / API jobs / MCP tools]
+    clients[SDK / CLI / API / MCP / HTTP Tool API / GitHub Action]
+    contracts[Platform manifest / use cases / tool schemas / benchmark profiles]
+    orchestration[MatDaemon queue / API jobs / MCP tools / HTTP tools]
     compute[auto / numpy / tiled / cuda]
     proof[tests / CI / benchmark artifacts]
 
@@ -252,15 +275,18 @@ flowchart LR
 | Gate | Evidence |
 | --- | --- |
 | Correctness | matrix outputs tested against expected NumPy-compatible results |
-| Platform | health, manifest, use cases, sync jobs, and async jobs covered by API tests |
+| Platform | health, manifest, use cases, sync jobs, async jobs, and HTTP tools covered by API tests |
 | Agent surface | self-contained MCP server exposes bounded JSON-RPC tools without external MCP dependencies |
+| Cloud surface | HTTP tool API exposes the MCP tool suite to hosted platforms without shell access |
 | Benchmark | suite writes JSON and Markdown artifacts with strict failure mode |
-| Packaging | package extras, console script, Dockerfile, docs, and GitHub Action surface |
+| Packaging | package extras, console script, Dockerfile, publish workflow, docs, and GitHub Action surface |
 
 ## Docs
 
 - [Platform guide](docs/PLATFORM.md)
 - [MCP guide](docs/MCP.md)
+- [Cloud and coding platform guide](docs/CLOUD.md)
+- [Publishing guide](docs/PUBLISHING.md)
 - [GitHub Action guide](docs/GITHUB_ACTION.md)
 - [Benchmark guide](docs/BENCHMARKING.md)
 - [Product surface](docs/PRODUCT.md)
