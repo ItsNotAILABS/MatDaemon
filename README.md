@@ -4,8 +4,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![AI Native](https://img.shields.io/badge/AI-native-black)](#ai-native-examples)
 [![CUDA Optional](https://img.shields.io/badge/CUDA-optional-76B900)](#cuda-backend)
+[![GitHub Callable](https://img.shields.io/badge/GitHub-callable-24292f)](#github-callable)
 
-**MatDaemon is an AI-native matrix compute platform: SDK, async daemon, CLI, REST API, benchmarks, and CUDA backend surface in one lightweight repo.**
+**MatDaemon is an AI-native matrix compute platform: SDK, async daemon, CLI, REST API, GitHub Action, benchmarks, and CUDA backend surface in one lightweight repo.**
 
 It is built for agents, RAG systems, embedding pipelines, simulations, and ML automation that need fast matrix multiplication without turning every project into a custom compute stack.
 
@@ -57,6 +58,7 @@ C = md.matmul(A, B, backend="auto")
 | Daemon | `md.MatDaemon()` | async agent and worker jobs |
 | CLI | `matdaemon matmul A.npy B.npy` | terminal workflows |
 | API | `POST /v1/matmul` | local service and platform integration |
+| GitHub Action | `matdaemon-benchmark` | call MatDaemon from GitHub Actions |
 | Benchmarks | `benchmark_suite.py` | launch reports and hardware proof |
 | CUDA | `backend="cuda"` | CuPy RawKernel backend on GPU hosts |
 
@@ -75,6 +77,30 @@ curl -X POST http://localhost:8000/v1/matmul \
   -H 'content-type: application/json' \
   -d '{"a": [[1, 2], [3, 4]], "b": [[5, 6], [7, 8]], "backend": "auto"}'
 ```
+
+## GitHub Callable
+
+MatDaemon can be called directly from GitHub Actions.
+
+Manual run:
+
+1. Open **Actions -> matdaemon-benchmark**.
+2. Choose `quick`, `launch`, or `ai` profile.
+3. Run against `numpy`, `tiled`, `auto`, or `cuda` backends.
+4. Download JSON/Markdown benchmark artifacts from the run.
+
+Reusable action:
+
+```yaml
+- uses: ItsNotAILABS/MatDaemon/.github/actions/matdaemon-benchmark@main
+  with:
+    profile: ai
+    backends: numpy tiled
+    repetitions: "1"
+    strict: "true"
+```
+
+See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md).
 
 ## AI-Native Examples
 
@@ -114,6 +140,12 @@ AI profile:
 python benchmarks/benchmark_suite.py --profile ai --backends auto numpy tiled --output benchmarks/results-ai
 ```
 
+Strict CI mode:
+
+```bash
+python benchmarks/benchmark_suite.py --profile quick --backends numpy tiled --strict --output benchmarks/results
+```
+
 CUDA profile:
 
 ```bash
@@ -121,7 +153,7 @@ python -m pip install -e .[cuda]
 python benchmarks/benchmark_suite.py --profile launch --backends numpy cuda --output benchmarks/results-cuda
 ```
 
-The suite emits JSON and Markdown reports so benchmark results can become release notes, launch posts, or GitHub issues.
+The suite emits JSON and Markdown reports so benchmark results can become release notes, launch posts, GitHub artifacts, or benchmark issues.
 
 ## CUDA Backend
 
@@ -168,6 +200,7 @@ with md.MatDaemon(backend="auto") as daemon:
 
 ## Platform Docs
 
+- [GitHub Action guide](docs/GITHUB_ACTION.md)
 - [Platform guide](docs/PLATFORM.md)
 - [Benchmark guide](docs/BENCHMARKING.md)
 - [Launch checklist](docs/LAUNCH.md)
