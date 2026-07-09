@@ -1,77 +1,363 @@
-"""MCP server for AI clients that need MatDaemon tools.
-
-Install with:
-    pip install matdaemon[mcp]
+"""Self-contained MCP server for MatDaemon AI tooling.
 
 Run with:
     matdaemon mcp
+
+The server speaks JSON-RPC over MCP stdio framing and intentionally avoids
+external MCP runtime dependencies so it remains easy to install on Windows ARM,
+CI runners, and minimal coding-agent environments.
 """
 
 from __future__ import annotations
 
+import json
+import platform
+import sys
 import time
-from typing import Literal
+from typing import Any, Callable, Literal
 
 import numpy as np
 
-from .matdaemon import matmul
+from .matdaemon import cuda_available, matmul, validate_matrices
 from .platform import get_platform_manifest
-from .use_cases import USE_CASES
-
-try:  # pragma: no cover - optional dependency import
-    from mcp.server.fastmcp import FastMCP
-except Exception as exc:  # pragma: no cover
-    FastMCP = None
-    _IMPORT_ERROR = exc
-else:  # pragma: no cover
-    _IMPORT_ERROR = None
+from .use_cases import USE_CASES, get_use_case
 
 Backend = Literal["auto", "numpy", "tiled", "cuda"]
 DType = Literal["float32", "float64"]
+ToolHandler = Callable[[dict[str, Any]], dict[str, Any]]
+
+PROTOCOL_VERSION = "2024-11-05"
+SERVER_INFO = {"name": "MatDaemon", "version": "0.3.0"}
 
 
-def create_mcp_server():
-    if FastMCP is None:  # pragma: no cover
-        raise RuntimeError("MCP support requires `pip install matdaemon[mcp]`.") from _IMPORT_ERROR
+def _json_text(payload: dict[str, Any]) -> dict[str, Any]:
+    return {"content": [{"type": "text", "text": json.dumps(payload, indent=2)}]}
 
-    mcp = FastMCP("MatDaemon")
 
-    @mcp.tool()
-    def matdaemon_matmul(a: list[list[float]], b: list[list[float]], backend: Backend = "auto", dtype: DType = "float32") -> dict:
-        """Multiply two matrices for an AI workflow and return result plus timing metadata."""
-        A = np.asarray(a, dtype=dtype)
-        B = np.asarray(b, dtype=dtype)
-        start = time.perf_counter()
-        result = matmul(A, B, backend=backend)
-        duration = time.perf_counter() - start
-        return {"backend": backend, "duration_seconds": round(duration, 6), "shape": list(result.shape), "result": result.tolist()}
+def _matrix(values: list[list[float]], dtype: str) -> np.ndarray:
+    return np.asarray(values, dtype=dtype)
 
-    @mcp.tool()
-    def matdaemon_similarity_top_k(queries: list[list[float]], candidates: list[list[float]], k: int = 5, backend: Backend = "auto") -> dict:
-        """Return top-k candidate indexes for query/candidate embedding similarity."""
-        Q = np.asarray(queries, dtype=np.float32)
-        C = np.asarray(candidates, dtype=np.float32)
-        Q = Q / (np.linalg.norm(Q, axis=1, keepdims=True) + 1e-8)
-        C = C / (np.linalg.norm(C, axis=1, keepdims=True) + 1e-8)
-        scores = matmul(Q, C.T, backend=backend)
-        top_k = np.argsort(-scores, axis=1)[:, :k]
-        return {"top_k": top_k.tolist(), "scores_shape": list(scores.shape), "backend": backend}
 
-    @mcp.tool()
-    def matdaemon_use_cases() -> dict:
-        """List AI use cases where MatDaemon can be called by an agent."""
-        return {"use_cases": USE_CASES}
+def tool_platform_manifest(arguments: dict[str, Any]) -> dict[str, Any]:
+    return get_platform_manifest()
 
-    @mcp.tool()
-    def matdaemon_platform_manifest() -> dict:
-        """Return the MatDaemon product surfaces, runtime stack, and proof gates."""
-        return get_platform_manifest()
 
-    return mcp
+def tool_backend_status(arguments: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "python": sys.version.split()[0],
+        "platform": platform.platform(),
+        "numpy": np.__version__,
+        "backends": {
+            "auto": {"available": True, "description": "Routes to CUDA when available, otherwise CPU."},
+            "numpy": {"available": True, "description": "Direct NumPy matmul path."},
+            "tiled": {"available": True, "description": "Memory-aware block CPU path."},
+            "cuda": {"available": cuda_available(), "description": "Optional CuPy RawKernel backend."},
+        },
+    }
+
+
+def tool_validate_matrices(arguments: dict[str, Any]) -> dict[str, Any]:
+    dtype = arguments.get("dtype", "float32")
+    A = _matrix(arguments.get("a", []), dtype)
+    B = _matrix(arguments.get("b", []), dtype)
+    try:
+        validate_matrices(A, B)
+    except Exception as exc:
+        return {"valid": False, "error": str(exc), "a_shape": list(A.shape), "b_shape": list(B.shape)}
+    return {
+        "valid": True,
+        "a_shape": list(A.shape),
+        "b_shape": list(B.shape),
+        "output_shape": [int(A.shape[0]), int(B.shape[1])],
+        "dtype": str(A.dtype),
+    }
+
+
+def tool_matmul(arguments: dict[str, Any]) -> dict[str, Any]:
+    dtype = arguments.get("dtype", "float32")
+    backend = arguments.get("backend", "auto")
+    A = _matrix(arguments.get("a", []), dtype)
+    B = _matrix(arguments.get("b", []), dtype)
+    start = time.perf_counter()
+    result = matmul(A, B, backend=backend)
+    duration = time.perf_counter() - start
+    return {
+        "backend": backend,
+        "duration_seconds": round(duration, 6),
+        "a_shape": list(A.shape),
+        "b_shape": list(B.shape),
+        "shape": list(result.shape),
+        "result": result.tolist(),
+    }
+
+
+def tool_similarity_top_k(arguments: dict[str, Any]) -> dict[str, Any]:
+    backend = arguments.get("backend", "auto")
+    k = int(arguments.get("k", 5))
+    Q = np.asarray(arguments.get("queries", []), dtype=np.float32)
+    C = np.asarray(arguments.get("candidates", []), dtype=np.float32)
+    if Q.ndim != 2 or C.ndim != 2:
+        raise ValueError("queries and candidates must be 2D arrays")
+    if Q.shape[1] != C.shape[1]:
+        raise ValueError("queries and candidates must have the same embedding dimension")
+    k = max(1, min(k, C.shape[0]))
+    Q = Q / (np.linalg.norm(Q, axis=1, keepdims=True) + 1e-8)
+    C = C / (np.linalg.norm(C, axis=1, keepdims=True) + 1e-8)
+    scores = matmul(Q, C.T, backend=backend)
+    top_k = np.argsort(-scores, axis=1)[:, :k]
+    top_scores = np.take_along_axis(scores, top_k, axis=1)
+    return {
+        "top_k": top_k.tolist(),
+        "top_scores": top_scores.tolist(),
+        "scores_shape": list(scores.shape),
+        "backend": backend,
+    }
+
+
+def tool_use_cases(arguments: dict[str, Any]) -> dict[str, Any]:
+    use_case_id = arguments.get("id")
+    if use_case_id:
+        use_case = get_use_case(str(use_case_id))
+        if use_case is None:
+            raise ValueError(f"Unknown use case: {use_case_id}")
+        return {"use_case": use_case}
+    return {"use_cases": USE_CASES}
+
+
+def tool_generate_api_payload(arguments: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "endpoint": "/v1/jobs/matmul" if arguments.get("async_job", True) else "/v1/matmul",
+        "method": "POST",
+        "headers": {"content-type": "application/json"},
+        "body": {
+            "a": arguments.get("a", [[1, 2], [3, 4]]),
+            "b": arguments.get("b", [[5, 6], [7, 8]]),
+            "backend": arguments.get("backend", "auto"),
+            "dtype": arguments.get("dtype", "float32"),
+            "use_case": arguments.get("use_case", "agent-memory-routing"),
+        },
+    }
+
+
+def tool_generate_github_action(arguments: dict[str, Any]) -> dict[str, Any]:
+    profile = arguments.get("profile", "ai")
+    backends = arguments.get("backends", "numpy tiled")
+    repetitions = str(arguments.get("repetitions", "1"))
+    strict = str(arguments.get("strict", "true")).lower()
+    yaml = (
+        "- uses: ItsNotAILABS/MatDaemon/.github/actions/matdaemon-benchmark@main\n"
+        "  with:\n"
+        f"    profile: {profile}\n"
+        f"    backends: {backends}\n"
+        f"    repetitions: \"{repetitions}\"\n"
+        f"    strict: \"{strict}\"\n"
+    )
+    return {"yaml": yaml}
+
+
+def tool_smoke_benchmark(arguments: dict[str, Any]) -> dict[str, Any]:
+    size = int(arguments.get("size", 128))
+    backend = arguments.get("backend", "auto")
+    seed = int(arguments.get("seed", 7))
+    size = max(1, min(size, 1024))
+    rng = np.random.default_rng(seed)
+    A = rng.standard_normal((size, size), dtype=np.float32)
+    B = rng.standard_normal((size, size), dtype=np.float32)
+    start = time.perf_counter()
+    result = matmul(A, B, backend=backend)
+    duration = time.perf_counter() - start
+    gflops = (2 * size * size * size) / duration / 1e9 if duration > 0 else float("inf")
+    return {
+        "status": "ok",
+        "backend": backend,
+        "shape": [size, size, size],
+        "duration_seconds": round(duration, 6),
+        "gflops": round(gflops, 3),
+        "output_shape": list(result.shape),
+    }
+
+
+TOOL_HANDLERS: dict[str, ToolHandler] = {
+    "matdaemon_platform_manifest": tool_platform_manifest,
+    "matdaemon_backend_status": tool_backend_status,
+    "matdaemon_validate_matrices": tool_validate_matrices,
+    "matdaemon_matmul": tool_matmul,
+    "matdaemon_similarity_top_k": tool_similarity_top_k,
+    "matdaemon_use_cases": tool_use_cases,
+    "matdaemon_generate_api_payload": tool_generate_api_payload,
+    "matdaemon_generate_github_action": tool_generate_github_action,
+    "matdaemon_smoke_benchmark": tool_smoke_benchmark,
+}
+
+TOOLS: list[dict[str, Any]] = [
+    {
+        "name": "matdaemon_platform_manifest",
+        "description": "Return MatDaemon product surfaces, runtime stack, install commands, and proof gates.",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
+        "name": "matdaemon_backend_status",
+        "description": "Inspect available MatDaemon backends and runtime environment.",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
+        "name": "matdaemon_validate_matrices",
+        "description": "Validate two matrix payloads and return output shape or a validation error.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "a": {"type": "array", "items": {"type": "array", "items": {"type": "number"}}},
+                "b": {"type": "array", "items": {"type": "array", "items": {"type": "number"}}},
+                "dtype": {"type": "string", "enum": ["float32", "float64"], "default": "float32"},
+            },
+            "required": ["a", "b"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "matdaemon_matmul",
+        "description": "Multiply two matrices and return result plus timing metadata.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "a": {"type": "array", "items": {"type": "array", "items": {"type": "number"}}},
+                "b": {"type": "array", "items": {"type": "array", "items": {"type": "number"}}},
+                "backend": {"type": "string", "enum": ["auto", "numpy", "tiled", "cuda"], "default": "auto"},
+                "dtype": {"type": "string", "enum": ["float32", "float64"], "default": "float32"},
+            },
+            "required": ["a", "b"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "matdaemon_similarity_top_k",
+        "description": "Rank candidate embeddings for query embeddings and return top-k indexes and scores.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "queries": {"type": "array", "items": {"type": "array", "items": {"type": "number"}}},
+                "candidates": {"type": "array", "items": {"type": "array", "items": {"type": "number"}}},
+                "k": {"type": "integer", "minimum": 1, "default": 5},
+                "backend": {"type": "string", "enum": ["auto", "numpy", "tiled", "cuda"], "default": "auto"},
+            },
+            "required": ["queries", "candidates"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "matdaemon_use_cases",
+        "description": "List all AI use cases, or fetch one use case by id.",
+        "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}}, "additionalProperties": False},
+    },
+    {
+        "name": "matdaemon_generate_api_payload",
+        "description": "Generate a ready-to-send HTTP API payload for MatDaemon matrix jobs.",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": True},
+    },
+    {
+        "name": "matdaemon_generate_github_action",
+        "description": "Generate a GitHub Actions snippet for the MatDaemon benchmark action.",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": True},
+    },
+    {
+        "name": "matdaemon_smoke_benchmark",
+        "description": "Run a bounded local square-matrix smoke benchmark. Size is capped at 1024.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "size": {"type": "integer", "minimum": 1, "maximum": 1024, "default": 128},
+                "backend": {"type": "string", "enum": ["auto", "numpy", "tiled", "cuda"], "default": "auto"},
+                "seed": {"type": "integer", "default": 7},
+            },
+            "additionalProperties": False,
+        },
+    },
+]
+
+
+def _response(request_id: Any, result: Any) -> dict[str, Any]:
+    return {"jsonrpc": "2.0", "id": request_id, "result": result}
+
+
+def _error(request_id: Any, code: int, message: str) -> dict[str, Any]:
+    return {"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}}
+
+
+def handle_request(message: dict[str, Any]) -> dict[str, Any] | None:
+    method = message.get("method")
+    request_id = message.get("id")
+
+    if method == "initialize":
+        return _response(
+            request_id,
+            {
+                "protocolVersion": PROTOCOL_VERSION,
+                "capabilities": {"tools": {}},
+                "serverInfo": SERVER_INFO,
+            },
+        )
+    if method == "notifications/initialized":
+        return None
+    if method == "tools/list":
+        return _response(request_id, {"tools": TOOLS})
+    if method == "tools/call":
+        params = message.get("params") or {}
+        name = params.get("name")
+        arguments = params.get("arguments") or {}
+        handler = TOOL_HANDLERS.get(name)
+        if handler is None:
+            return _error(request_id, -32601, f"Unknown tool: {name}")
+        try:
+            return _response(request_id, _json_text(handler(arguments)))
+        except Exception as exc:
+            return _response(request_id, {"content": [{"type": "text", "text": str(exc)}], "isError": True})
+    return _error(request_id, -32601, f"Unsupported method: {method}")
+
+
+def _read_message(stdin: Any) -> dict[str, Any] | None:
+    header = stdin.buffer.readline()
+    if not header:
+        return None
+
+    if header.startswith(b"Content-Length:"):
+        length = int(header.decode("ascii").split(":", 1)[1].strip())
+        while True:
+            line = stdin.buffer.readline()
+            if line in (b"\r\n", b"\n", b""):
+                break
+        body = stdin.buffer.read(length)
+        return json.loads(body.decode("utf-8"))
+
+    stripped = header.strip()
+    if not stripped:
+        return None
+    return json.loads(stripped.decode("utf-8"))
+
+
+def _write_message(stdout: Any, message: dict[str, Any]) -> None:
+    body = json.dumps(message, separators=(",", ":")).encode("utf-8")
+    stdout.buffer.write(f"Content-Length: {len(body)}\r\n\r\n".encode("ascii"))
+    stdout.buffer.write(body)
+    stdout.buffer.flush()
+
+
+def serve_stdio() -> None:
+    while True:
+        message = _read_message(sys.stdin)
+        if message is None:
+            break
+        response = handle_request(message)
+        if response is not None:
+            _write_message(sys.stdout, response)
+
+
+def create_mcp_server() -> dict[str, Any]:
+    """Return the self-contained MCP server contract for tests and introspection."""
+    return {"protocolVersion": PROTOCOL_VERSION, "serverInfo": SERVER_INFO, "tools": TOOLS}
 
 
 def main() -> None:
-    create_mcp_server().run()
+    serve_stdio()
 
 
 if __name__ == "__main__":
