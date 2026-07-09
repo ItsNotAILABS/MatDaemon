@@ -1,111 +1,137 @@
 # MatDaemon
 
-
-MatDaemon – High-Performance Vectorized Matrix Multiplication Daemon. Memory-safe, lightning-fast matrix operations in the background. Built for scalable agentic AI and large-scale computations.
-
-Reusable production backend module for sovereign/recursive AI systems, multi-agent architectures, and ML pipelines. Solves the real-world pain of OOM errors on big matrices while delivering near-native NumPy speed.
-
-MatDaemon is a lightweight yet robust Python background daemon that handles high-performance matrix multiplication asynchronously. It intelligently switches between NumPy’s highly optimized BLAS/LAPACK backend (for smaller matrices) and a custom dynamic tiled vectorized implementation (for very large matrices) to prevent out-of-memory errors and virtual memory thrashing.
-
-The daemon runs on a dedicated worker thread with a thread-safe task queue, supports callbacks for results or errors, includes comprehensive logging, input validation, type hints, and graceful shutdown via OS signals. It was designed as a reliable computation core for multi-agent AI systems (including orchestrators, specialized agents, and recursive/neuro-inspired architectures) but works as a standalone module for any Python project needing efficient, production-ready linear algebra.Minimal dependency: NumPy only.
-
-Key Features 
-Memory-Safe Tiling — Dynamic block sizing based on matrix footprint and CPU cache awareness; prevents OOM even on multi-gigabyte-scale operations.
-Hybrid High-Performance Execution — Automatic fallback to optimized np.matmul when safe; custom vectorized tiling only when needed.
-
-True Asynchronous & Thread-Safe Design — Background daemon with queue-based task submission, active task tracking, and non-blocking operation.
-Production-Grade Reliability — Signal handling (SIGINT/SIGTERM), graceful shutdown, structured logging, validation, and error callbacks.
-
-Easy Integration — Simple submit() API with optional callbacks; ideal for multi-agent systems, orchestrators, and agent-to-agent workflows.
-Extensible & Observable — Full type hints, logging at multiple levels, and easy embedding into larger platforms (Python + TypeScript agent layers).
-
-Target Audience & Use CasesAI/ML engineers building agentic systems, multi-agent frameworks, or sovereign AI platforms
-
-Researchers and developers working with large matrices (transformers, embeddings, scientific simulations, neuro-inspired models)
-
-Teams needing reliable backend computation for AI Hive Clouds, recursive systems, or Web3/Blockchain AI applications
-Anyone tired of manual memory management or crashes when scaling matrix-heavy workloads
-
-One-line install:
-
-# MatDaemon
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![PyPI](https://img.shields.io/pypi/v/matdaemon?color=brightgreen)](https://pypi.org/project/matdaemon/)
 
-**High-Performance Matrix Multiplication SDK** with CPU and CUDA backends.
+**MatDaemon is a high-performance matrix multiplication SDK and async daemon for agentic AI, ML pipelines, simulations, and automation systems.**
 
-MatDaemon delivers fast, memory-efficient matrix multiplication with a clean, production-ready API. It automatically chooses the best backend and includes a highly optimized CUDA kernel using shared memory tiling + register tiling.
+It gives you one clean surface for CPU NumPy, memory-aware tiled CPU execution, and optional CUDA acceleration through CuPy. Use it as a tiny SDK, a background daemon, or a CLI tool when matrix jobs need to be easy to ship, easy to benchmark, and safer around large outputs.
 
----
+## Why MatDaemon
 
-## Features
+Large matrix jobs can block agent runtimes, crash small workers, or turn a simple pipeline into manual memory management. MatDaemon packages the core flow as a product-ready compute module:
 
-- **Hybrid Backends**: Seamless CPU (NumPy) and GPU (CUDA) support
-- **Optimized CUDA Kernel**: Tiled GEMM with shared memory + register blocking (8×8 per thread)
-- **Simple SDK API**: Context manager, `matmul()`, and task submission
-- **Production Ready**: Type hints, clean error handling, easy to extend
-- **Minimal Dependencies**: NumPy required, CuPy optional for GPU
+- **Simple SDK:** `md.matmul(A, B)`
+- **Backend selection:** `auto`, `numpy`, `tiled`, or `cuda`
+- **Async daemon:** queue matrix jobs without blocking the caller
+- **Memory-aware tiling:** route large outputs through tiled execution
+- **Optional CUDA:** lazy CuPy backend, CPU installs remain lightweight
+- **CLI:** multiply `.npy` files and run quick benchmarks
+- **Proof harness:** tests and benchmarks compare correctness against NumPy
 
-## Installation
+## Install
 
 ```bash
-# Basic (CPU only)
 pip install matdaemon
+```
 
-# With CUDA support (recommended for large matrices)
-pip install matdaemon[cuda]
-# or
-pip install cupy-cuda12x   # or cupy-cuda11x depending on your CUDA version
+For local development from the repo:
 
+```bash
+git clone https://github.com/ItsNotAILABS/MatDaemon.git
+cd MatDaemon
+python -m pip install -e .[dev]
+pytest -q
+```
+
+Optional CUDA support requires a CuPy package that matches your CUDA runtime:
+
+```bash
+python -m pip install -e .[cuda]
+# or install the exact CuPy build for your machine, for example:
+pip install cupy-cuda12x
+```
+
+## SDK Quickstart
+
+```python
 import numpy as np
 import matdaemon as md
 
-A = np.random.randn(4096, 4096).astype(np.float32)
-B = np.random.randn(4096, 4096).astype(np.float32)
+A = np.random.randn(1024, 1024).astype(np.float32)
+B = np.random.randn(1024, 1024).astype(np.float32)
 
-# Automatic backend selection (uses CUDA if available)
-result = md.matmul(A, B)
-
-# Force specific backend
+result = md.matmul(A, B)                  # automatic backend selection
 result_cpu = md.matmul(A, B, backend="numpy")
-result_gpu = md.matmul(A, B, backend="cuda")
+result_tiled = md.matmul(A, B, backend="tiled")
+```
 
-# Using the SDK class directly
-with md.MatDaemon(backend="cuda") as daemon:
-    result = daemon.matmul(A, B)
+## Async Daemon
 
+```python
+import time
+import numpy as np
+import matdaemon as md
 
+A = np.eye(512, dtype=np.float32)
+B = np.ones((512, 512), dtype=np.float32)
 
-Performance NotesMatrix Size
-NumPy (CPU)
-MatDaemon CUDA
-Speedup
-1024×1024
-~15 ms
-~2.5 ms
-~6×
-4096×4096
-~1.2 s
-~45 ms
-~25×+
-8192×8192
-~10 s+
-~180 ms
-50×+
+with md.MatDaemon(backend="auto") as daemon:
+    task_id = daemon.submit_matmul(A, B)
 
-Note: Performance varies by GPU. The custom kernel already significantly outperforms basic CuPy implementations on many workloads.
-RoadmapTrue asynchronous GPU execution
-Tensor Core support (FP16 / TF32)
-Additional operations (batched matmul, elementwise, etc.)
-Automatic backend selection based on matrix size
-PyPI release
+    while daemon.result(task_id) is None:
+        time.sleep(0.05)
 
-ContributingContributions are welcome! Feel free to open issues or pull requests, especially around:Additional backends
-Kernel optimizations
-Benchmarks
+    job = daemon.result(task_id)
+    print(job.output_shape, job.duration_seconds, job.backend)
+```
 
-LicenseMIT License — see LICENSE file.
+## CLI
 
+Multiply two `.npy` matrices:
 
+```bash
+matdaemon matmul A.npy B.npy --backend auto --output result.npy
+```
+
+Run a quick benchmark:
+
+```bash
+matdaemon benchmark --size 1024 --backend tiled
+```
+
+Run the benchmark harness:
+
+```bash
+python benchmarks/benchmark_matmul.py --sizes 256 512 1024 --backend auto
+```
+
+## Backend Guide
+
+| Backend | Use it when |
+| --- | --- |
+| `auto` | You want MatDaemon to pick CUDA if available, otherwise CPU/tiled based on output size. |
+| `numpy` | You want direct NumPy BLAS/LAPACK performance for normal workloads. |
+| `tiled` | You want predictable block-wise CPU execution for larger outputs. |
+| `cuda` | You have CuPy + CUDA installed and want GPU execution. |
+
+CUDA is imported lazily. CPU-only installs do not break if CuPy is missing. If `backend="cuda"` is requested without a working CUDA stack, MatDaemon raises a clear `CudaUnavailableError`.
+
+## Product Surface
+
+MatDaemon is built to become a compute substrate for larger systems:
+
+- agent orchestrators that need non-blocking matrix jobs
+- ML and embedding pipelines that need a small GEMM utility layer
+- simulation tools that need repeatable benchmark records
+- local-first AI runtimes that need CPU/GPU flexibility
+- future HTTP workers and operator dashboards
+
+See [docs/PRODUCT.md](docs/PRODUCT.md) for the product surface and next gates.
+
+## Current Status
+
+This repo now ships the core SDK surface, CLI, tests, benchmark harness, and optional CUDA backend boundary. CUDA performance depends on local hardware, CuPy version, CUDA runtime, and matrix shape. Always benchmark on the target machine before publishing hardware-specific claims.
+
+## Roadmap
+
+- HTTP job service for remote matrix workers
+- persistent result artifact store
+- task cancellation and progress events
+- Tensor Core / FP16 / TF32 backend path
+- benchmark report publishing
+- operator UI for queued compute jobs
+
+## License
+
+MIT License.
