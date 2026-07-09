@@ -3,9 +3,12 @@ MatDaemon – High-Performance Vectorized Matrix Multiplication Daemon. Memory-s
 
 Reusable production backend module for sovereign/recursive AI systems, multi-agent architectures, and ML pipelines. Solves the real-world pain of OOM errors on big matrices while delivering near-native NumPy speed.
 
-MatDaemon is a lightweight yet robust Python background daemon that handles high-performance matrix multiplication asynchronously. It intelligently switches between NumPy’s highly optimized BLAS/LAPACK backend (for smaller matrices) and a custom dynamic tiled vectorized implementation (for very large matrices) to prevent out-of-memory errors and virtual memory thrashing. The daemon runs on a dedicated worker thread with a thread-safe task queue, supports callbacks for results or errors, includes comprehensive logging, input validation, type hints, and graceful shutdown via OS signals. It was designed as a reliable computation core for multi-agent AI systems (including orchestrators, specialized agents, and recursive/neuro-inspired architectures) but works as a standalone module for any Python project needing efficient, production-ready linear algebra.Minimal dependency: NumPy only.
+MatDaemon is a lightweight yet robust Python background daemon that handles high-performance matrix multiplication asynchronously. It intelligently switches between NumPy’s highly optimized BLAS/LAPACK backend (for smaller matrices) and a custom dynamic tiled vectorized implementation (for very large matrices) to prevent out-of-memory errors and virtual memory thrashing.
 
-Key Features (Marketing-Friendly Bullets)Memory-Safe Tiling — Dynamic block sizing based on matrix footprint and CPU cache awareness; prevents OOM even on multi-gigabyte-scale operations.
+The daemon runs on a dedicated worker thread with a thread-safe task queue, supports callbacks for results or errors, includes comprehensive logging, input validation, type hints, and graceful shutdown via OS signals. It was designed as a reliable computation core for multi-agent AI systems (including orchestrators, specialized agents, and recursive/neuro-inspired architectures) but works as a standalone module for any Python project needing efficient, production-ready linear algebra.Minimal dependency: NumPy only.
+
+Key Features 
+Memory-Safe Tiling — Dynamic block sizing based on matrix footprint and CPU cache awareness; prevents OOM even on multi-gigabyte-scale operations.
 Hybrid High-Performance Execution — Automatic fallback to optimized np.matmul when safe; custom vectorized tiling only when needed.
 
 True Asynchronous & Thread-Safe Design — Background daemon with queue-based task submission, active task tracking, and non-blocking operation.
