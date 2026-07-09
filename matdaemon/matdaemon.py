@@ -1,9 +1,4 @@
-"""MatDaemon SDK core.
-
-MatDaemon gives Python projects a small, production-friendly matrix compute
-surface: synchronous matmul, backend selection, and an asynchronous daemon for
-agent and worker systems that should not block on large matrix jobs.
-"""
+"""MatDaemon SDK core."""
 
 from __future__ import annotations
 
@@ -42,7 +37,7 @@ class MemoryPolicy:
     large_element_threshold: int = 10**7
 
     def block_size_for(self, matrix_shape_a: Tuple[int, int], matrix_shape_b: Tuple[int, int]) -> int:
-        total_elements = (matrix_shape_a[0] * matrix_shape_a[1]) + (matrix_shape_b[0] * matrix_shape_b[1])
+        total_elements = matrix_shape_a[0] * matrix_shape_a[1] + matrix_shape_b[0] * matrix_shape_b[1]
         if total_elements > self.large_element_threshold:
             return self.large_block_size
         if total_elements > self.medium_element_threshold:
@@ -67,7 +62,7 @@ class MatrixTask:
 
 @dataclass(frozen=True)
 class MatrixResult:
-    """Result metadata returned by synchronous SDK calls and daemon jobs."""
+    """Result metadata returned by daemon jobs."""
 
     task_id: str
     result: np.ndarray
@@ -76,13 +71,15 @@ class MatrixResult:
     output_shape: Tuple[int, int]
 
 
+class CudaUnavailableError(RuntimeError):
+    """Raised when the CUDA backend is requested without usable CuPy/CUDA."""
+
+
 def validate_matrices(matrix_a: np.ndarray, matrix_b: np.ndarray) -> None:
     if not isinstance(matrix_a, np.ndarray) or not isinstance(matrix_b, np.ndarray):
         raise TypeError("Both inputs must be numpy.ndarray instances.")
     if matrix_a.ndim != 2 or matrix_b.ndim != 2:
-        raise ValueError(
-            f"Matrices must be 2D. Matrix A: {matrix_a.ndim}D, Matrix B: {matrix_b.ndim}D."
-        )
+        raise ValueError(f"Matrices must be 2D. Matrix A: {matrix_a.ndim}D, Matrix B: {matrix_b.ndim}D.")
     if matrix_a.shape[1] != matrix_b.shape[0]:
         raise ValueError(
             "Dimension mismatch for multiplication: "
@@ -91,9 +88,7 @@ def validate_matrices(matrix_a: np.ndarray, matrix_b: np.ndarray) -> None:
 
 
 def _as_contiguous(matrix: np.ndarray) -> np.ndarray:
-    if matrix.flags["C_CONTIGUOUS"]:
-        return matrix
-    return np.ascontiguousarray(matrix)
+    return matrix if matrix.flags["C_CONTIGUOUS"] else np.ascontiguousarray(matrix)
 
 
 class VectorizedMatrixMultiplier:
@@ -109,7 +104,6 @@ class VectorizedMatrixMultiplier:
         validate_matrices(A, B)
         A = _as_contiguous(A)
         B = _as_contiguous(B)
-
         m, n = A.shape
         _, p = B.shape
         estimated_output_bytes = m * p * A.dtype.itemsize
@@ -117,13 +111,8 @@ class VectorizedMatrixMultiplier:
         if estimated_output_bytes < self.memory_policy.max_direct_output_bytes and not force_tiled:
             return np.matmul(A, B)
 
-        logger.info(
-            "Using tiled CPU multiplication for target output size %.2f MB",
-            estimated_output_bytes / (1024**2),
-        )
         block_size = self.get_optimal_block_size(A.shape, B.shape)
         C = np.zeros((m, p), dtype=np.result_type(A.dtype, B.dtype))
-
         for i in range(0, m, block_size):
             i_end = min(i + block_size, m)
             for k in range(0, n, block_size):
@@ -132,7 +121,6 @@ class VectorizedMatrixMultiplier:
                 for j in range(0, p, block_size):
                     j_end = min(j + block_size, p)
                     C[i:i_end, j:j_end] += A_tile @ B[k:k_end, j:j_end]
-
         return C
 
 
@@ -154,22 +142,18 @@ class TiledBackend:
         return self.multiplier.multiply(A, B, force_tiled=True)
 
 
-class CudaUnavailableError(RuntimeError):
-    """Raised when the CUDA backend is requested without usable CuPy support."""
-
-
 class CUDABackend:
     name = "cuda"
 
     def __init__(self, tile_size: int = 128):
         try:
-            from .backends.cuda_backend import CUDABackend as _Impl
+            from .backends.cuda_backend import CUDABackend as CUDAImpl
+            self._impl = CUDAImpl(tile_size=tile_size)
         except Exception as exc:  # pragma: no cover - depends on optional CuPy/CUDA install
             raise CudaUnavailableError(
                 "CUDA backend requires CuPy and a working CUDA runtime. "
-                "Install with `pip install matdaemon[cuda]` and match CuPy to your CUDA version."
+                "Install `matdaemon[cuda]` or a CuPy build that matches your CUDA version."
             ) from exc
-        self._impl = _Impl(tile_size=tile_size)
 
     def matmul(self, A: np.ndarray, B: np.ndarray) -> np.ndarray:
         validate_matrices(A, B)
@@ -258,17 +242,14 @@ class MatDaemon:
         self._shutdown_event.clear()
         self._worker_thread = threading.Thread(target=self._run_loop, name="MatDaemonWorker", daemon=True)
         self._worker_thread.start()
-        logger.info("MatDaemon started successfully.")
 
     def submit(self, task: MatrixTask) -> bool:
         if self._shutdown_event.is_set():
-            logger.error("Cannot submit task '%s'; daemon is shutting down.", task.task_id)
             return False
         try:
             task.validate()
             self._task_queue.put(task, block=False)
-        except (ValueError, TypeError, queue.Full) as exc:
-            logger.error("Task submission failed for '%s': %s", task.task_id, exc)
+        except (ValueError, TypeError, queue.Full):
             return False
         with self._lock:
             self._active_tasks[task.task_id] = time.time()
@@ -302,7 +283,6 @@ class MatDaemon:
             return dict(self._active_tasks)
 
     def shutdown(self, timeout: float = 5.0) -> None:
-        logger.info("Shutdown requested. Gracefully stopping daemon thread...")
         self._shutdown_event.set()
         try:
             self._task_queue.put(None, block=False)
@@ -314,10 +294,6 @@ class MatDaemon:
                 pass
         if self._worker_thread:
             self._worker_thread.join(timeout=timeout)
-            if self._worker_thread.is_alive():
-                logger.warning("Daemon thread did not terminate within timeout.")
-            else:
-                logger.info("Daemon thread shut down cleanly.")
 
     def _run_loop(self) -> None:
         while not self._shutdown_event.is_set() or not self._task_queue.empty():
@@ -328,31 +304,18 @@ class MatDaemon:
             if task is None:
                 self._task_queue.task_done()
                 break
-
             start_time = time.perf_counter()
             try:
-                selected_backend = resolve_backend(
-                    backend=task.backend,
-                    memory_policy=self.memory_policy,
-                    A=task.matrix_a,
-                    B=task.matrix_b,
-                )
+                selected_backend = resolve_backend(task.backend, self.memory_policy, task.matrix_a, task.matrix_b)
                 output = selected_backend.matmul(task.matrix_a, task.matrix_b)
                 duration = time.perf_counter() - start_time
-                result = MatrixResult(
-                    task_id=task.task_id,
-                    result=output,
-                    duration_seconds=duration,
-                    backend=selected_backend.name,
-                    output_shape=output.shape,
-                )
+                result = MatrixResult(task.task_id, output, duration, selected_backend.name, output.shape)
                 with self._lock:
                     self._results[task.task_id] = result
                 if task.callback:
                     task.callback(task.task_id, output, duration)
             except Exception as exc:
                 duration = time.perf_counter() - start_time
-                logger.error("Computation failure on task '%s' after %.4fs: %s", task.task_id, duration, exc)
                 with self._lock:
                     self._results[task.task_id] = exc
                 if task.callback:
@@ -363,7 +326,6 @@ class MatDaemon:
                 self._task_queue.task_done()
 
 
-# Backward-compatible alias from the first prototype.
 MatrixHelperDaemon = MatDaemon
 
 
