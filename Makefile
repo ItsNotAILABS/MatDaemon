@@ -1,4 +1,4 @@
-.PHONY: install dev test benchmark benchmark-ai serve docker
+.PHONY: install dev test platform benchmark benchmark-ai serve docker
 
 install:
 	python -m pip install --upgrade pip
@@ -6,10 +6,13 @@ install:
 
 dev:
 	python -m pip install --upgrade pip
-	python -m pip install -e .[dev]
+	python -m pip install -e .[dev,api,mcp]
 
 test:
 	pytest -q
+
+platform:
+	matdaemon platform
 
 benchmark:
 	python benchmarks/benchmark_suite.py --profile launch --backends numpy tiled --output benchmarks/results
