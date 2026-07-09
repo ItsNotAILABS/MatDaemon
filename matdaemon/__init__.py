@@ -17,7 +17,7 @@ from .matdaemon import (
 )
 from .platform import PLATFORM_SURFACES, get_platform_manifest
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 
 __all__ = [
     "BackendName",
