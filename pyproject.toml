@@ -4,15 +4,26 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "matdaemon"
-version = "0.1.0"
-description = "High-performance matrix multiplication SDK and async daemon with CPU and optional CUDA backends."
+version = "0.2.0"
+description = "AI-native matrix compute SDK, daemon, CLI, and API with CPU, tiled, and optional CUDA backends."
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [{name = "ItsNotAILABS"}]
-keywords = ["matrix", "numpy", "cuda", "agentic-ai", "daemon", "gemm"]
+keywords = [
+  "agentic-ai",
+  "ai-agents",
+  "artificial-intelligence",
+  "cuda",
+  "gemm",
+  "matrix-multiplication",
+  "mlops",
+  "numpy",
+  "rag",
+  "vector-search",
+]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "Intended Audience :: Science/Research",
   "License :: OSI Approved :: MIT License",
@@ -23,12 +34,15 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: Scientific/Engineering :: Mathematics",
+  "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = ["numpy>=1.23"]
 
 [project.optional-dependencies]
+api = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "pydantic>=2"]
 cuda = ["cupy-cuda12x>=12; platform_system != 'Darwin'"]
-dev = ["pytest>=7.4"]
+dev = ["pytest>=7.4", "fastapi>=0.115", "uvicorn[standard]>=0.30", "httpx>=0.27"]
+all = ["fastapi>=0.115", "uvicorn[standard]>=0.30", "pydantic>=2", "cupy-cuda12x>=12; platform_system != 'Darwin'"]
 
 [project.scripts]
 matdaemon = "matdaemon.cli:main"
@@ -37,6 +51,8 @@ matdaemon = "matdaemon.cli:main"
 Homepage = "https://github.com/ItsNotAILABS/MatDaemon"
 Repository = "https://github.com/ItsNotAILABS/MatDaemon"
 Issues = "https://github.com/ItsNotAILABS/MatDaemon/issues"
+Documentation = "https://github.com/ItsNotAILABS/MatDaemon#readme"
+Benchmarks = "https://github.com/ItsNotAILABS/MatDaemon/tree/main/benchmarks"
 
 [tool.setuptools.packages.find]
 include = ["matdaemon*"]

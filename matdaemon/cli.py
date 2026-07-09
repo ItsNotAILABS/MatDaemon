@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .matdaemon import BackendName, matmul
+from .matdaemon import matmul
 
 
 def _cmd_matmul(args: argparse.Namespace) -> int:
@@ -50,8 +50,17 @@ def _cmd_benchmark(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_serve(args: argparse.Namespace) -> int:
+    try:
+        import uvicorn
+    except Exception as exc:
+        raise RuntimeError("Install API support with `pip install matdaemon[api]`.") from exc
+    uvicorn.run("matdaemon.api:app", host=args.host, port=args.port, reload=args.reload)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="MatDaemon matrix compute CLI")
+    parser = argparse.ArgumentParser(description="MatDaemon AI matrix compute platform")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     matmul_parser = subparsers.add_parser("matmul", help="Multiply two .npy matrix files")
@@ -68,6 +77,12 @@ def build_parser() -> argparse.ArgumentParser:
     bench_parser.add_argument("--seed", type=int, default=7)
     bench_parser.add_argument("--backend", choices=["auto", "numpy", "tiled", "cuda"], default="auto")
     bench_parser.set_defaults(func=_cmd_benchmark)
+
+    serve_parser = subparsers.add_parser("serve", help="Run the MatDaemon HTTP API")
+    serve_parser.add_argument("--host", default="127.0.0.1")
+    serve_parser.add_argument("--port", type=int, default=8000)
+    serve_parser.add_argument("--reload", action="store_true")
+    serve_parser.set_defaults(func=_cmd_serve)
     return parser
 
 
