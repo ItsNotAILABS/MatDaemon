@@ -8,10 +8,6 @@
 [![GitHub Callable](https://img.shields.io/badge/GitHub-callable-24292f)](#github-callable)
 
 **MatDaemon is an AI-native matrix compute platform: SDK, async daemon, CLI, REST API, MCP server, GitHub Action, benchmarks, and CUDA backend surface in one lightweight repo.**
-[![CUDA Optional](https://img.shields.io/badge/CUDA-optional-76B900)](#cuda-backend)
-[![GitHub Callable](https://img.shields.io/badge/GitHub-callable-24292f)](#github-callable)
-
-**MatDaemon is an AI-native matrix compute platform: SDK, async daemon, CLI, REST API, MCP server, GitHub Action, benchmarks, and CUDA backend surface in one lightweight repo.**
 
 It is built for agents, RAG systems, embedding pipelines, simulations, and ML automation that need fast matrix multiplication without turning every project into a custom compute stack.
 
@@ -23,42 +19,13 @@ pip install "matdaemon[api]"   # HTTP API
 pip install "matdaemon[mcp]"   # MCP server
 ```
 
-Install platform surfaces:
-
-```bash
-pip install "matdaemon[api]"   # HTTP API
-pip install "matdaemon[mcp]"   # MCP server
-```
-
-Install everything from source:
+From source:
 
 ```bash
 git clone https://github.com/ItsNotAILABS/MatDaemon.git
 cd MatDaemon
 python -m pip install -e .[dev,api,mcp]
 pytest -q
-```
-
-Docker launch:
-
-```bash
-docker compose up --build
-```
-
-## 10-Second SDK Demo
-
-```python
-import numpy as np
-import matdaemon as md
-
-A = np.random.randn(1024, 1024).astype(np.float32)
-B = np.random.randn(1024, 1024).astype(np.float32)
-C = md.matmul(A, B, backend="auto")
-```
-
-## Mini Platform API
-
-C = md.matmul(A, B, backend="auto")
 ```
 
 ## Product Surfaces
@@ -72,6 +39,17 @@ C = md.matmul(A, B, backend="auto")
 | MCP Server | `matdaemon mcp` | tool-calling AI clients |
 | GitHub Action | `matdaemon-benchmark` | call MatDaemon from GitHub Actions |
 | CUDA | `backend="cuda"` | CuPy RawKernel backend on GPU hosts |
+
+## SDK Demo
+
+```python
+import numpy as np
+import matdaemon as md
+
+A = np.random.randn(1024, 1024).astype(np.float32)
+B = np.random.randn(1024, 1024).astype(np.float32)
+C = md.matmul(A, B, backend="auto")
+```
 
 ## Mini Platform API
 
@@ -129,8 +107,6 @@ See [docs/MCP.md](docs/MCP.md).
 
 ## GitHub Callable
 
-MatDaemon can be called directly from GitHub Actions.
-
 ```yaml
 - uses: ItsNotAILABS/MatDaemon/.github/actions/matdaemon-benchmark@main
   with:
@@ -166,8 +142,6 @@ python benchmarks/benchmark_suite.py --profile ai --backends auto numpy tiled --
 python benchmarks/benchmark_suite.py --profile quick --backends numpy tiled --strict --output benchmarks/results
 ```
 
-The suite emits JSON and Markdown reports for release notes, launch posts, GitHub artifacts, or benchmark issues.
-
 ## CUDA Backend
 
 MatDaemon preserves the specialized CUDA RawKernel backend under:
@@ -201,16 +175,6 @@ CPU installs stay lightweight. CUDA imports are optional and only required when 
 - [Benchmark guide](docs/BENCHMARKING.md)
 - [Launch checklist](docs/LAUNCH.md)
 - [Product surface](docs/PRODUCT.md)
-
-CPU installs stay lightweight. CUDA imports are optional and only required when `backend="cuda"` is requested.
-
-- persistent external job queue
-- result artifact storage
-- streaming progress
-- cancellation
-- hosted demo endpoint
-- Tensor Core / FP16 / TF32 backend path
-- benchmark gallery from community hardware
 
 ## License
 
