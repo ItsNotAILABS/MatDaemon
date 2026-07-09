@@ -1,4 +1,5 @@
 import cupy as cp
+import numpy as np
 from .base import BaseBackend
 
 # Highly optimized tiled + register-tiled GEMM kernel
@@ -12,7 +13,7 @@ extern "C" __global__ void gemm_tiled(
     const int TILE = 128;
     const int THREAD_TILE = 8;
 
-    __shared__ float As[TILE][TILE + 4];  // +4 to avoid bank conflicts
+    __shared__ float As[TILE][TILE + 4];
     __shared__ float Bs[TILE][TILE + 4];
 
     int bx = blockIdx.x;
@@ -26,29 +27,28 @@ extern "C" __global__ void gemm_tiled(
     float acc[THREAD_TILE][THREAD_TILE] = {0.0f};
 
     for (int t = 0; t < (K + TILE - 1) / TILE; ++t) {
-        // Load A tile (coalesced)
+        // Coalesced load into shared memory
         for (int i = 0; i < THREAD_TILE; ++i) {
             for (int j = 0; j < THREAD_TILE; ++j) {
                 int r = by * TILE + ty * THREAD_TILE + i;
                 int c = t * TILE + tx * THREAD_TILE + j;
-                As[ty * THREAD_TILE + i][tx * THREAD_TILE + j] = 
+                As[ty * THREAD_TILE + i][tx * THREAD_TILE + j] =
                     (r < M && c < K) ? A[r * K + c] : 0.0f;
             }
         }
 
-        // Load B tile (coalesced)
         for (int i = 0; i < THREAD_TILE; ++i) {
             for (int j = 0; j < THREAD_TILE; ++j) {
                 int r = t * TILE + ty * THREAD_TILE + i;
                 int c = bx * TILE + tx * THREAD_TILE + j;
-                Bs[ty * THREAD_TILE + i][tx * THREAD_TILE + j] = 
+                Bs[ty * THREAD_TILE + i][tx * THREAD_TILE + j] =
                     (r < K && c < N) ? B[r * N + c] : 0.0f;
             }
         }
 
         __syncthreads();
 
-        // Compute using registers (register tiling)
+        // Register tiling + unrolling
         #pragma unroll
         for (int k = 0; k < TILE; ++k) {
             float a_frag[THREAD_TILE];
@@ -74,7 +74,7 @@ extern "C" __global__ void gemm_tiled(
         __syncthreads();
     }
 
-    // Write back results
+    // Write results
     #pragma unroll
     for (int i = 0; i < THREAD_TILE; ++i) {
         #pragma unroll
@@ -89,25 +89,27 @@ extern "C" __global__ void gemm_tiled(
 '''
 
 class CUDABackend(BaseBackend):
-    def __init__(self, tile_size=128):
+    def __init__(self, tile_size: int = 128):
         self.tile_size = tile_size
         self.kernel = cp.RawKernel(GEMM_KERNEL, 'gemm_tiled')
 
-    def matmul(self, A, B):
+    def matmul(self, A: np.ndarray, B: np.ndarray) -> np.ndarray:
         if not isinstance(A, cp.ndarray):
-            A = cp.asarray(A)
+            A = cp.asarray(A, dtype=cp.float32)
         if not isinstance(B, cp.ndarray):
-            B = cp.asarray(B)
+            B = cp.asarray(B, dtype=cp.float32)
 
         M, K = A.shape
         K2, N = B.shape
-        assert K == K2
+        assert K == K2, "Inner dimensions must match"
 
         C = cp.zeros((M, N), dtype=cp.float32)
 
-        block = (16, 16)  # 256 threads (good for 8x8 thread tile)
-        grid = ((N + self.tile_size - 1) // self.tile_size,
-                (M + self.tile_size - 1) // self.tile_size)
+        block = (16, 16)  # 256 threads for 8x8 thread tile
+        grid = (
+            (N + self.tile_size - 1) // self.tile_size,
+            (M + self.tile_size - 1) // self.tile_size
+        )
 
         self.kernel(grid, block, (A, B, C, M, N, K))
-        return cp.asnumpy(C)  # Return as NumPy for compatibility
+        return cp.asnumpy(C)
