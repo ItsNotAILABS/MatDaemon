@@ -11,13 +11,13 @@
 <p align="center">
   <a href="https://www.python.org/downloads/"><img alt="Python 3.9+" src="https://img.shields.io/badge/python-3.9+-2563eb.svg"></a>
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-f59e0b.svg"></a>
-  <a href="#mcp-server"><img alt="MCP server" src="https://img.shields.io/badge/MCP-server-111827.svg"></a>
+  <a href="#mcp-server"><img alt="MCP server" src="https://img.shields.io/badge/MCP-self--contained-111827.svg"></a>
   <a href="#http-mini-platform"><img alt="HTTP API" src="https://img.shields.io/badge/API-FastAPI-059669.svg"></a>
   <a href="#github-callable-benchmarks"><img alt="GitHub callable" src="https://img.shields.io/badge/GitHub-callable-24292f.svg"></a>
   <a href="#cuda-backend"><img alt="CUDA optional" src="https://img.shields.io/badge/CUDA-optional-76B900.svg"></a>
 </p>
 
-MatDaemon packages matrix multiplication as a real product surface: Python SDK, async in-process daemon, CLI, HTTP job API, MCP server, GitHub Action, benchmark harness, Docker API surface, and optional CUDA RawKernel backend.
+MatDaemon packages matrix multiplication as a real product surface: Python SDK, async in-process daemon, CLI, HTTP job API, self-contained MCP server, GitHub Action, benchmark harness, Docker API surface, and optional CUDA RawKernel backend.
 
 It is built for AI systems that need a small, callable compute layer without bringing in a full ML framework or inventing a one-off matrix service for every agent, RAG pipeline, simulation, or automation worker.
 
@@ -27,11 +27,10 @@ AI products keep needing the same matrix operations in different places: embeddi
 
 ## Install
 
+PyPI publishing is pending. Until the first package release is uploaded, install from GitHub or from a local clone:
+
 ```bash
-pip install matdaemon
-pip install "matdaemon[api]"   # HTTP API surface
-pip install "matdaemon[mcp]"   # MCP server surface
-pip install "matdaemon[cuda]"  # optional CUDA host support
+python -m pip install "git+https://github.com/ItsNotAILABS/MatDaemon.git"
 ```
 
 From source:
@@ -39,9 +38,20 @@ From source:
 ```bash
 git clone https://github.com/ItsNotAILABS/MatDaemon.git
 cd MatDaemon
-python -m pip install -e .[dev,api,mcp]
+python -m pip install -e .
+python -m pip install -e .[dev,api]
 pytest -q
 ```
+
+Optional surfaces:
+
+```bash
+python -m pip install -e .[api]   # HTTP API surface
+python -m pip install -e .[mcp]   # self-contained MCP server, no extra runtime deps
+python -m pip install -e .[cuda]  # optional CUDA host support
+```
+
+Windows ARM note: use `python -m pip install -e .[dev,api]` for development and API tests. The API extra uses plain `uvicorn`, not `uvicorn[standard]`, so it does not require compiling `httptools`. The MCP server is self-contained and does not require the external `mcp` package.
 
 ## Platform Surfaces
 
@@ -51,7 +61,7 @@ pytest -q
 | Daemon | `md.MatDaemon()` | queue in-process async matrix jobs |
 | CLI | `matdaemon matmul`, `matdaemon benchmark`, `matdaemon platform` | local operator and CI workflows |
 | HTTP API | `matdaemon serve` | sync and async matrix jobs over FastAPI |
-| MCP Server | `matdaemon mcp` | tool-calling AI clients over stdio |
+| MCP Server | `matdaemon mcp` | tool-calling AI clients and coding platforms over stdio |
 | GitHub Action | `.github/actions/matdaemon-benchmark` | benchmark MatDaemon from GitHub Actions |
 | CUDA Backend | `backend="cuda"` | optional CuPy RawKernel GEMM on GPU hosts |
 
@@ -109,14 +119,6 @@ curl http://localhost:8000/v1/jobs/<job_id>
 curl http://localhost:8000/v1/jobs/<job_id>/result
 ```
 
-Use the synchronous endpoint for simple calls:
-
-```bash
-curl -X POST http://localhost:8000/v1/matmul \
-  -H 'content-type: application/json' \
-  -d '{"a": [[1, 2]], "b": [[3], [4]], "backend": "auto"}'
-```
-
 Docker:
 
 ```bash
@@ -124,6 +126,8 @@ docker compose up --build
 ```
 
 ## MCP Server
+
+MatDaemon includes a self-contained MCP stdio server for coding platforms and AI clients:
 
 ```bash
 matdaemon mcp
@@ -133,17 +137,39 @@ MCP tools:
 
 | Tool | Use |
 | --- | --- |
+| `matdaemon_platform_manifest` | return product surfaces, runtime stack, install commands, and proof gates |
+| `matdaemon_backend_status` | inspect available backends and runtime environment |
+| `matdaemon_validate_matrices` | validate matrix payloads before execution |
 | `matdaemon_matmul` | multiply matrices and return result plus timing metadata |
 | `matdaemon_similarity_top_k` | rank candidate embeddings for local RAG or memory routing |
 | `matdaemon_use_cases` | list AI use cases and recommended backend shape |
-| `matdaemon_platform_manifest` | return product surfaces, runtime stack, and proof gates |
+| `matdaemon_generate_api_payload` | create a ready-to-send HTTP API job payload |
+| `matdaemon_generate_github_action` | create a GitHub Action benchmark snippet |
+| `matdaemon_smoke_benchmark` | run a bounded local benchmark for tool validation |
 
-Client config shape:
+Generic MCP config:
 
 ```json
 {
-  "command": "matdaemon",
-  "args": ["mcp"]
+  "mcpServers": {
+    "matdaemon": {
+      "command": "matdaemon",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+For a local editable clone on Windows, use the Python module path if the `matdaemon` console script is not on PATH:
+
+```json
+{
+  "mcpServers": {
+    "matdaemon": {
+      "command": "python",
+      "args": ["-m", "matdaemon.mcp_server"]
+    }
+  }
 }
 ```
 
@@ -227,7 +253,7 @@ flowchart LR
 | --- | --- |
 | Correctness | matrix outputs tested against expected NumPy-compatible results |
 | Platform | health, manifest, use cases, sync jobs, and async jobs covered by API tests |
-| Agent surface | MCP module imports without optional dependency and exposes bounded tools when installed |
+| Agent surface | self-contained MCP server exposes bounded JSON-RPC tools without external MCP dependencies |
 | Benchmark | suite writes JSON and Markdown artifacts with strict failure mode |
 | Packaging | package extras, console script, Dockerfile, docs, and GitHub Action surface |
 
