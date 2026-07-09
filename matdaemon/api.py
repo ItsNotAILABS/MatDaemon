@@ -15,6 +15,7 @@ from typing import Dict, Literal, Optional
 import numpy as np
 
 from .matdaemon import matmul
+from .platform import get_platform_manifest
 from .use_cases import USE_CASES
 
 try:  # pragma: no cover - optional dependency import
@@ -155,6 +156,10 @@ def create_app() -> "FastAPI":
             "jobs_total": len(state.jobs),
             "uptime_seconds": round(time.time() - state.started_at, 3),
         }
+
+    @app.get("/v1/platform")
+    def platform_manifest() -> dict:
+        return get_platform_manifest()
 
     @app.get("/v1/use-cases")
     def list_use_cases() -> dict:
