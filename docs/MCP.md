@@ -26,39 +26,15 @@ matdaemon mcp
 
 Multiply two matrices and return result plus timing metadata.
 
-Input:
-
-```json
-{
-  "a": [[1, 2], [3, 4]],
-  "b": [[5, 6], [7, 8]],
-  "backend": "auto",
-  "dtype": "float32"
-}
-```
-
 ### `matdaemon_similarity_top_k`
 
 Compute normalized embedding similarity and return top-k candidate indexes.
-
-Input:
-
-```json
-{
-  "queries": [[0.1, 0.2, 0.3]],
-  "candidates": [[0.1, 0.2, 0.4], [0.9, 0.1, 0.1]],
-  "k": 1,
-  "backend": "auto"
-}
-```
 
 ### `matdaemon_use_cases`
 
 Return the built-in AI use-case registry.
 
 ## Client Config Shape
-
-For MCP clients that launch stdio servers, use this command shape:
 
 ```json
 {

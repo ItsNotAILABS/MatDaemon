@@ -8,6 +8,10 @@
 [![GitHub Callable](https://img.shields.io/badge/GitHub-callable-24292f)](#github-callable)
 
 **MatDaemon is an AI-native matrix compute platform: SDK, async daemon, CLI, REST API, MCP server, GitHub Action, benchmarks, and CUDA backend surface in one lightweight repo.**
+[![CUDA Optional](https://img.shields.io/badge/CUDA-optional-76B900)](#cuda-backend)
+[![GitHub Callable](https://img.shields.io/badge/GitHub-callable-24292f)](#github-callable)
+
+**MatDaemon is an AI-native matrix compute platform: SDK, async daemon, CLI, REST API, MCP server, GitHub Action, benchmarks, and CUDA backend surface in one lightweight repo.**
 
 It is built for agents, RAG systems, embedding pipelines, simulations, and ML automation that need fast matrix multiplication without turning every project into a custom compute stack.
 
@@ -15,6 +19,8 @@ It is built for agents, RAG systems, embedding pipelines, simulations, and ML au
 
 ```bash
 pip install matdaemon
+pip install "matdaemon[api]"   # HTTP API
+pip install "matdaemon[mcp]"   # MCP server
 ```
 
 Install platform surfaces:
@@ -47,6 +53,10 @@ import matdaemon as md
 
 A = np.random.randn(1024, 1024).astype(np.float32)
 B = np.random.randn(1024, 1024).astype(np.float32)
+C = md.matmul(A, B, backend="auto")
+```
+
+## Mini Platform API
 
 C = md.matmul(A, B, backend="auto")
 ```
@@ -192,7 +202,7 @@ CPU installs stay lightweight. CUDA imports are optional and only required when 
 - [Launch checklist](docs/LAUNCH.md)
 - [Product surface](docs/PRODUCT.md)
 
-## Roadmap
+CPU installs stay lightweight. CUDA imports are optional and only required when `backend="cuda"` is requested.
 
 - persistent external job queue
 - result artifact storage

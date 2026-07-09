@@ -36,24 +36,14 @@ def create_mcp_server():
     mcp = FastMCP("MatDaemon")
 
     @mcp.tool()
-    def matdaemon_matmul(
-        a: list[list[float]],
-        b: list[list[float]],
-        backend: Backend = "auto",
-        dtype: DType = "float32",
-    ) -> dict:
+    def matdaemon_matmul(a: list[list[float]], b: list[list[float]], backend: Backend = "auto", dtype: DType = "float32") -> dict:
         """Multiply two matrices for an AI workflow and return result plus timing metadata."""
         A = np.asarray(a, dtype=dtype)
         B = np.asarray(b, dtype=dtype)
         start = time.perf_counter()
         result = matmul(A, B, backend=backend)
         duration = time.perf_counter() - start
-        return {
-            "backend": backend,
-            "duration_seconds": round(duration, 6),
-            "shape": list(result.shape),
-            "result": result.tolist(),
-        }
+        return {"backend": backend, "duration_seconds": round(duration, 6), "shape": list(result.shape), "result": result.tolist()}
 
     @mcp.tool()
     def matdaemon_use_cases() -> dict:
@@ -61,12 +51,7 @@ def create_mcp_server():
         return {"use_cases": USE_CASES}
 
     @mcp.tool()
-    def matdaemon_similarity_top_k(
-        queries: list[list[float]],
-        candidates: list[list[float]],
-        k: int = 5,
-        backend: Backend = "auto",
-    ) -> dict:
+    def matdaemon_similarity_top_k(queries: list[list[float]], candidates: list[list[float]], k: int = 5, backend: Backend = "auto") -> dict:
         """Return top-k candidate indexes for query/candidate embedding similarity."""
         Q = np.asarray(queries, dtype=np.float32)
         C = np.asarray(candidates, dtype=np.float32)
