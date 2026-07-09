@@ -25,9 +25,32 @@ The manifest includes:
 - SDK, daemon, CLI, API, MCP, GitHub Action, and CUDA surfaces
 - runtime stack layers
 - AI use-case registry
+- MCP tool registry
 - proof gates
-- install commands
+- source install commands
 - operator commands
+
+## Install Posture
+
+PyPI publishing is pending. Use source install until the first package release is uploaded:
+
+```bash
+git clone https://github.com/ItsNotAILABS/MatDaemon.git
+cd MatDaemon
+python -m pip install -e .
+python -m pip install -e .[dev,api]
+pytest -q
+```
+
+Windows ARM safe path:
+
+```bash
+python -m pip install -e .[dev,api]
+pytest -q
+matdaemon mcp
+```
+
+The API path uses plain `uvicorn`, not `uvicorn[standard]`, and the MCP server is self-contained.
 
 ## Runtime Architecture
 
@@ -48,7 +71,8 @@ flowchart TD
 | Operator | Surface | Command or contract |
 | --- | --- | --- |
 | Developer | SDK | `md.matmul(A, B, backend="auto")` |
-| Agent runtime | MCP | `matdaemon_matmul`, `matdaemon_similarity_top_k` |
+| Agent runtime | MCP | `matdaemon_matmul`, `matdaemon_similarity_top_k`, `matdaemon_backend_status` |
+| Coding platform | MCP | `matdaemon_platform_manifest`, `matdaemon_generate_api_payload`, `matdaemon_generate_github_action` |
 | Service caller | HTTP API | `POST /v1/jobs/matmul`, `GET /v1/jobs/{job_id}` |
 | Maintainer | GitHub Action | `.github/actions/matdaemon-benchmark` |
 | GPU operator | CUDA backend | `backend="cuda"` |
@@ -88,7 +112,7 @@ curl http://localhost:8000/v1/jobs/<job_id>/result
 
 ## MCP Server
 
-Run the server:
+Run the self-contained stdio server:
 
 ```bash
 python -m pip install -e .[mcp]
@@ -97,12 +121,17 @@ matdaemon mcp
 
 MCP tools:
 
+- `matdaemon_platform_manifest`
+- `matdaemon_backend_status`
+- `matdaemon_validate_matrices`
 - `matdaemon_matmul`
 - `matdaemon_similarity_top_k`
 - `matdaemon_use_cases`
-- `matdaemon_platform_manifest`
+- `matdaemon_generate_api_payload`
+- `matdaemon_generate_github_action`
+- `matdaemon_smoke_benchmark`
 
-Security posture: the MCP server exposes bounded matrix compute and discovery helpers. It does not execute shell commands, read arbitrary files, or access network resources.
+Security posture: the MCP server exposes bounded matrix compute, benchmark, and discovery helpers. It does not execute shell commands, read arbitrary files, mutate repositories, or access network resources.
 
 ## Docker
 
@@ -121,21 +150,22 @@ See [GITHUB_ACTION.md](GITHUB_ACTION.md).
 
 Current production-ready surfaces:
 
-- installable Python package metadata and optional extras
+- source-installable Python package metadata and optional extras
 - SDK and daemon APIs
 - CLI for local operator workflows
 - FastAPI mini platform with sync and async jobs
-- MCP server for AI clients
+- self-contained MCP server for AI clients and coding platforms
 - GitHub Action benchmark runner
 - Docker API surface
 - benchmark suite with strict mode and artifact output
 - CUDA backend preserved as optional GPU path
-- CI-covered platform manifest and API lifecycle
+- CI-covered platform manifest, MCP tools, and API lifecycle
 
 ## Next Production Gates
 
-These are future hardening gates, not blockers for shipping the current package:
+These are future hardening gates, not blockers for shipping the current source package:
 
+- PyPI release upload
 - persistent external job queue for multi-process deployments
 - result artifact storage for large matrix outputs
 - streaming progress and cancellation
