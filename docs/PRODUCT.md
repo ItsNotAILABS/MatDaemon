@@ -1,30 +1,80 @@
 # MatDaemon Product Surface
 
-MatDaemon is a shippable Python SDK and compute daemon for memory-aware matrix multiplication in agentic AI, ML, simulation, and automation workflows.
+MatDaemon is a shippable AI-native matrix compute platform. It packages the compute core, operator workflows, AI-callable tool surfaces, benchmark proof, and deployment scaffolding into one focused repository.
 
-## Product Surfaces
+## Product Definition
 
-- **SDK:** `import matdaemon as md` and call `md.matmul(A, B)`.
-- **Daemon:** use `MatDaemon` as a context-managed async worker for queued jobs.
-- **CLI:** run `.npy` matrix multiplication and quick benchmarks from a terminal.
-- **Backends:** choose `auto`, `numpy`, `tiled`, or optional `cuda`.
-- **Proof Layer:** tests and benchmark harness establish correctness against NumPy.
+MatDaemon gives agents and developers a compact matrix compute substrate with:
 
-## Ship-Day Positioning
+- Python SDK for direct integration
+- in-process daemon for async local jobs
+- CLI for operator workflows and smoke benchmarks
+- FastAPI mini platform for remote sync and async matrix jobs
+- MCP server for tool-calling AI clients
+- GitHub Action for benchmark proof from CI
+- Docker API surface for local service runs
+- optional CUDA RawKernel backend for GPU hosts
 
-MatDaemon is not a general ML framework. It is a focused compute substrate for teams that need matrix multiplication to be easy to embed, easy to benchmark, and harder to crash under large outputs.
+## Product Architecture
+
+```mermaid
+flowchart LR
+    sdk[SDK] --> core[MatDaemon core]
+    daemon[Daemon] --> core
+    cli[CLI] --> core
+    api[HTTP API] --> core
+    mcp[MCP Server] --> core
+    gha[GitHub Action] --> bench[Benchmark Suite]
+    core --> backends[auto / numpy / tiled / cuda]
+    backends --> proof[tests + benchmark artifacts]
+```
 
 ## First Customer Flow
 
 1. Install `matdaemon`.
-2. Multiply matrices through the SDK or CLI.
-3. Use `backend="tiled"` when memory safety matters.
-4. Use `backend="cuda"` when CuPy and CUDA are available.
-5. Run benchmarks to produce machine-specific proof.
+2. Run `matdaemon platform` to inspect the product contract.
+3. Call `md.matmul(A, B, backend="auto")` in Python.
+4. Run `matdaemon serve` when a local or remote service surface is needed.
+5. Run `matdaemon mcp` when an AI client needs tool access.
+6. Run the benchmark suite or GitHub Action to generate proof artifacts for the machine.
+
+## AI Customer Flows
+
+| Flow | Surface | Why it matters |
+| --- | --- | --- |
+| Agent memory router | MCP or SDK | score query embeddings against memory matrices |
+| Local RAG similarity | MCP, SDK, or API | rank documents without adding a vector database dependency |
+| Simulation worker | daemon or API | execute repeated matrix transitions as jobs |
+| CI benchmark proof | GitHub Action | publish machine-specific JSON and Markdown results |
+| GPU host check | CUDA backend | validate RawKernel path where CUDA exists |
+
+## Product Boundary
+
+MatDaemon is not a general ML framework, model server, vector database, or workflow engine. It is a matrix compute platform that can be embedded inside those systems.
+
+That boundary is valuable: the repo stays small enough to install quickly, inspect easily, benchmark honestly, and call from AI tools without granting broad execution power.
+
+## Production Proof
+
+Current proof surfaces:
+
+- unit tests for matrix correctness and backend behavior
+- API lifecycle tests for health, manifest, use cases, sync jobs, and async jobs
+- AI surface tests for use cases and MCP import behavior
+- benchmark suite with JSON and Markdown outputs
+- GitHub Action for repeatable benchmark runs
+- Dockerfile and compose surface for API startup
+
+## Release Positioning
+
+Suggested launch line:
+
+> MatDaemon is an AI-native matrix compute platform: SDK, daemon, CLI, HTTP API, MCP server, GitHub Action, benchmarks, and optional CUDA RawKernel backend for agents, RAG, simulations, and ML automation.
 
 ## Next Product Gates
 
-- HTTP service wrapper for remote jobs.
-- Result artifact storage for long-running jobs.
-- Streaming status and cancellation.
-- Published benchmark table with hardware notes.
+- publish PyPI package
+- tag `v0.3.0`
+- run CPU benchmark artifact on GitHub Actions
+- run CUDA benchmark artifact on a GPU host
+- add hosted demo endpoint when infrastructure is available
