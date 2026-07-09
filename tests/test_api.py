@@ -20,8 +20,36 @@ def test_api_platform_manifest():
     surface_ids = {surface["id"] for surface in payload["surfaces"]}
     assert payload["name"] == "MatDaemon"
     assert "api" in surface_ids
+    assert "cloud-tool-api" in surface_ids
     assert "mcp" in surface_ids
     assert payload["operator_commands"]["serve_api"].startswith("matdaemon serve")
+
+
+def test_api_tools_list():
+    client = TestClient(create_app())
+    response = client.get("/v1/tools")
+    assert response.status_code == 200
+    tool_names = {tool["name"] for tool in response.json()["tools"]}
+    assert "matdaemon_matmul" in tool_names
+    assert "matdaemon_generate_github_action" in tool_names
+
+
+def test_api_tool_call_matmul():
+    client = TestClient(create_app())
+    response = client.post(
+        "/v1/tools/matdaemon_matmul",
+        json={"arguments": {"a": [[1, 2], [3, 4]], "b": [[5, 6], [7, 8]], "backend": "numpy"}},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["tool"] == "matdaemon_matmul"
+    assert payload["result"]["result"] == [[19.0, 22.0], [43.0, 50.0]]
+
+
+def test_api_tool_call_unknown():
+    client = TestClient(create_app())
+    response = client.post("/v1/tools/nope", json={"arguments": {}})
+    assert response.status_code == 404
 
 
 def test_api_matmul():
