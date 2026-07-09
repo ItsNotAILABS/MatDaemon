@@ -26,3 +26,20 @@ Researchers and developers working with large matrices (transformers, embeddings
 Teams needing reliable backend computation for AI Hive Clouds, recursive systems, or Web3/Blockchain AI applications
 Anyone tired of manual memory management or crashes when scaling matrix-heavy workloads
 
+One-line install:
+
+pip install git+https://github.com/ItsNotAILABS/MatDaemon.git
+
+Quick example:
+```python
+from MatDaemon import MatrixHelperDaemon, MatrixTask
+import numpy as np
+
+daemon = MatrixHelperDaemon()
+daemon.start()
+
+# submit tasks...
+daemon.shutdown()
+
+
+
