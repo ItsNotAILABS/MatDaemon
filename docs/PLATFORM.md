@@ -1,63 +1,114 @@
-# MatDaemon Platform
+# MatDaemon Platform Guide
 
-MatDaemon ships as a mini platform with six callable surfaces:
+MatDaemon is a mini compute platform packaged as a Python project. The product is not only `matmul`; it is the collection of callable surfaces, contracts, runtime routes, proof gates, and operator workflows around matrix compute for AI systems.
 
-1. **SDK** - `import matdaemon as md` for direct matrix multiplication.
-2. **Daemon** - `MatDaemon` for async in-process agent and worker jobs.
-3. **CLI** - `matdaemon matmul`, `matdaemon benchmark`, `matdaemon serve`, and `matdaemon mcp`.
-4. **HTTP API** - FastAPI service for synchronous and async matrix jobs.
-5. **MCP Server** - tool surface for MCP-compatible AI clients.
-6. **GitHub Action** - benchmark runs directly from GitHub Actions.
+![MatDaemon platform architecture](assets/matdaemon-platform.svg)
 
-## Run the API
+## Platform Contract
+
+The platform contract is exposed from one shared manifest:
+
+```bash
+matdaemon platform
+curl http://localhost:8000/v1/platform
+```
+
+```python
+import matdaemon as md
+
+manifest = md.get_platform_manifest()
+```
+
+The manifest includes:
+
+- product name, version, status, and tagline
+- SDK, daemon, CLI, API, MCP, GitHub Action, and CUDA surfaces
+- runtime stack layers
+- AI use-case registry
+- proof gates
+- install commands
+- operator commands
+
+## Runtime Architecture
+
+```mermaid
+flowchart TD
+    A[AI client, developer, CI, or service] --> B[SDK, CLI, HTTP API, MCP, or GitHub Action]
+    B --> C[platform manifest and typed contracts]
+    C --> D[MatDaemon orchestration]
+    D --> E{backend selection}
+    E --> F[NumPy]
+    E --> G[tiled CPU]
+    E --> H[CUDA RawKernel]
+    D --> I[status, results, benchmark artifacts]
+```
+
+## Operator Surfaces
+
+| Operator | Surface | Command or contract |
+| --- | --- | --- |
+| Developer | SDK | `md.matmul(A, B, backend="auto")` |
+| Agent runtime | MCP | `matdaemon_matmul`, `matdaemon_similarity_top_k` |
+| Service caller | HTTP API | `POST /v1/jobs/matmul`, `GET /v1/jobs/{job_id}` |
+| Maintainer | GitHub Action | `.github/actions/matdaemon-benchmark` |
+| GPU operator | CUDA backend | `backend="cuda"` |
+| Release operator | Benchmark suite | `benchmark-results.json`, `benchmark-results.md` |
+
+## HTTP API
+
+Run the service:
 
 ```bash
 python -m pip install -e .[api]
 matdaemon serve --host 0.0.0.0 --port 8000
 ```
 
-Synchronous call:
+Core endpoints:
 
-```bash
-curl -X POST http://localhost:8000/v1/matmul \
-  -H 'content-type: application/json' \
-  -d '{"a": [[1, 2], [3, 4]], "b": [[5, 6], [7, 8]], "backend": "auto"}'
-```
+| Endpoint | Method | Purpose |
+| --- | --- | --- |
+| `/health` | `GET` | service health and job counters |
+| `/v1/platform` | `GET` | product manifest and runtime contract |
+| `/v1/use-cases` | `GET` | AI use-case registry |
+| `/v1/matmul` | `POST` | synchronous matrix multiplication |
+| `/v1/jobs/matmul` | `POST` | create async matrix job |
+| `/v1/jobs/{job_id}` | `GET` | poll job status |
+| `/v1/jobs/{job_id}/result` | `GET` | fetch completed result |
 
-Async job call:
+Async job flow:
 
 ```bash
 curl -X POST http://localhost:8000/v1/jobs/matmul \
   -H 'content-type: application/json' \
   -d '{"a": [[1, 2], [3, 4]], "b": [[5, 6], [7, 8]], "backend": "numpy", "use_case": "agent-memory-routing"}'
-```
 
-Then poll:
-
-```bash
 curl http://localhost:8000/v1/jobs/<job_id>
 curl http://localhost:8000/v1/jobs/<job_id>/result
 ```
 
-Discover AI use cases:
+## MCP Server
 
-```bash
-curl http://localhost:8000/v1/use-cases
-```
-
-## Run the MCP Server
+Run the server:
 
 ```bash
 python -m pip install -e .[mcp]
 matdaemon mcp
 ```
 
-See [MCP.md](MCP.md).
+MCP tools:
+
+- `matdaemon_matmul`
+- `matdaemon_similarity_top_k`
+- `matdaemon_use_cases`
+- `matdaemon_platform_manifest`
+
+Security posture: the MCP server exposes bounded matrix compute and discovery helpers. It does not execute shell commands, read arbitrary files, or access network resources.
 
 ## Docker
 
 ```bash
 docker compose up --build
+curl http://localhost:8000/v1/platform
 ```
 
 ## GitHub Actions
@@ -66,22 +117,28 @@ Use **Actions -> matdaemon-benchmark -> Run workflow** to execute benchmark prof
 
 See [GITHUB_ACTION.md](GITHUB_ACTION.md).
 
-## AI Platform Fit
+## Production Posture
 
-MatDaemon is useful anywhere an AI system needs fast matrix operations without coupling itself to a full ML framework:
+Current production-ready surfaces:
 
-- agent memory routing
-- local RAG similarity
-- embedding projection
-- attention-style blocks
-- simulation workers
-- benchmarkable local compute nodes
+- installable Python package metadata and optional extras
+- SDK and daemon APIs
+- CLI for local operator workflows
+- FastAPI mini platform with sync and async jobs
+- MCP server for AI clients
+- GitHub Action benchmark runner
+- Docker API surface
+- benchmark suite with strict mode and artifact output
+- CUDA backend preserved as optional GPU path
+- CI-covered platform manifest and API lifecycle
 
-## Production Next Gates
+## Next Production Gates
 
-- persistent external job queue
-- artifact result storage
-- streaming progress
-- cancellation
-- GPU runner profile
+These are future hardening gates, not blockers for shipping the current package:
+
+- persistent external job queue for multi-process deployments
+- result artifact storage for large matrix outputs
+- streaming progress and cancellation
 - hosted demo endpoint
+- signed release artifacts
+- GPU runner benchmark table

@@ -12,6 +12,18 @@ def test_api_health():
     assert response.json()["status"] == "ok"
 
 
+def test_api_platform_manifest():
+    client = TestClient(create_app())
+    response = client.get("/v1/platform")
+    assert response.status_code == 200
+    payload = response.json()
+    surface_ids = {surface["id"] for surface in payload["surfaces"]}
+    assert payload["name"] == "MatDaemon"
+    assert "api" in surface_ids
+    assert "mcp" in surface_ids
+    assert payload["operator_commands"]["serve_api"].startswith("matdaemon serve")
+
+
 def test_api_matmul():
     client = TestClient(create_app())
     response = client.post(

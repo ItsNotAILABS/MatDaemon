@@ -15,6 +15,7 @@ from typing import Literal
 import numpy as np
 
 from .matdaemon import matmul
+from .platform import get_platform_manifest
 from .use_cases import USE_CASES
 
 try:  # pragma: no cover - optional dependency import
@@ -46,11 +47,6 @@ def create_mcp_server():
         return {"backend": backend, "duration_seconds": round(duration, 6), "shape": list(result.shape), "result": result.tolist()}
 
     @mcp.tool()
-    def matdaemon_use_cases() -> dict:
-        """List AI use cases where MatDaemon can be called by an agent."""
-        return {"use_cases": USE_CASES}
-
-    @mcp.tool()
     def matdaemon_similarity_top_k(queries: list[list[float]], candidates: list[list[float]], k: int = 5, backend: Backend = "auto") -> dict:
         """Return top-k candidate indexes for query/candidate embedding similarity."""
         Q = np.asarray(queries, dtype=np.float32)
@@ -60,6 +56,16 @@ def create_mcp_server():
         scores = matmul(Q, C.T, backend=backend)
         top_k = np.argsort(-scores, axis=1)[:, :k]
         return {"top_k": top_k.tolist(), "scores_shape": list(scores.shape), "backend": backend}
+
+    @mcp.tool()
+    def matdaemon_use_cases() -> dict:
+        """List AI use cases where MatDaemon can be called by an agent."""
+        return {"use_cases": USE_CASES}
+
+    @mcp.tool()
+    def matdaemon_platform_manifest() -> dict:
+        """Return the MatDaemon product surfaces, runtime stack, and proof gates."""
+        return get_platform_manifest()
 
     return mcp
 
