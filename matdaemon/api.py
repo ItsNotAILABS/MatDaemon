@@ -1,6 +1,6 @@
 """FastAPI service surface for MatDaemon.
 
-Install with `pip install matdaemon[api]`, then run:
+Install from source with `python -m pip install -e .[api]`, then run:
     matdaemon serve --host 0.0.0.0 --port 8000
 """
 
@@ -116,11 +116,11 @@ def _status_response(job: JobRecord) -> JobStatusResponse:
 
 def create_app() -> "FastAPI":
     if FastAPI is None:  # pragma: no cover
-        raise RuntimeError("FastAPI is not installed. Install with `pip install matdaemon[api]`.") from _IMPORT_ERROR
+        raise RuntimeError("FastAPI is not installed. Install with `python -m pip install -e .[api]`.") from _IMPORT_ERROR
 
     app = FastAPI(
         title="MatDaemon API",
-        version="0.3.0",
+        version="0.3.1",
         description="Matrix compute platform for AI agents, RAG systems, simulations, and automation workers.",
     )
     state = PlatformState(started_at=time.time())

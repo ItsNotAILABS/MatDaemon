@@ -16,8 +16,20 @@ def _package_version() -> str:
     try:
         return metadata.version("matdaemon")
     except metadata.PackageNotFoundError:
-        return "0.3.0"
+        return "0.3.1"
 
+
+MCP_TOOLS = [
+    "matdaemon_platform_manifest",
+    "matdaemon_backend_status",
+    "matdaemon_validate_matrices",
+    "matdaemon_matmul",
+    "matdaemon_similarity_top_k",
+    "matdaemon_use_cases",
+    "matdaemon_generate_api_payload",
+    "matdaemon_generate_github_action",
+    "matdaemon_smoke_benchmark",
+]
 
 PLATFORM_SURFACES: list[dict[str, str]] = [
     {
@@ -42,7 +54,7 @@ PLATFORM_SURFACES: list[dict[str, str]] = [
         "entrypoint": "matdaemon",
         "contract": "matdaemon matmul | benchmark | serve | mcp | platform",
         "operator": "developer, CI runner, local automation",
-        "value": "Run matrix jobs, smoke benchmarks, API service, and manifest checks from a shell.",
+        "value": "Run matrix jobs, smoke benchmarks, API service, MCP server, and manifest checks from a shell.",
     },
     {
         "id": "api",
@@ -54,11 +66,11 @@ PLATFORM_SURFACES: list[dict[str, str]] = [
     },
     {
         "id": "mcp",
-        "title": "MCP server",
+        "title": "Self-contained MCP server",
         "entrypoint": "matdaemon mcp",
-        "contract": "matdaemon_matmul, matdaemon_similarity_top_k, matdaemon_use_cases, matdaemon_platform_manifest",
-        "operator": "MCP-compatible AI client",
-        "value": "Let tool-calling AI clients discover and invoke matrix compute safely over stdio.",
+        "contract": ", ".join(MCP_TOOLS),
+        "operator": "MCP-compatible AI client or coding platform",
+        "value": "Let coding agents discover, validate, benchmark, and invoke matrix compute over stdio without broad machine access.",
     },
     {
         "id": "github-action",
@@ -81,15 +93,15 @@ PLATFORM_SURFACES: list[dict[str, str]] = [
 RUNTIME_STACK: list[dict[str, str]] = [
     {"layer": "client", "role": "SDK, CLI, HTTP, MCP, or GitHub Action caller"},
     {"layer": "contracts", "role": "typed payloads, platform manifest, use-case registry, benchmark profiles"},
-    {"layer": "orchestration", "role": "MatDaemon queue, API job lifecycle, CLI dispatch, MCP tools"},
+    {"layer": "orchestration", "role": "MatDaemon queue, API job lifecycle, CLI dispatch, MCP JSON-RPC tools"},
     {"layer": "compute", "role": "auto, numpy, tiled CPU, or optional CUDA RawKernel backend"},
-    {"layer": "proof", "role": "unit tests, API lifecycle tests, benchmark JSON, benchmark Markdown, CI artifacts"},
+    {"layer": "proof", "role": "unit tests, API lifecycle tests, MCP tool tests, benchmark JSON, benchmark Markdown, CI artifacts"},
 ]
 
 PROOF_GATES: list[dict[str, str]] = [
     {"gate": "correctness", "evidence": "matrix outputs validated against NumPy-compatible expected results"},
     {"gate": "platform", "evidence": "health, platform manifest, use cases, sync jobs, and async jobs covered by API tests"},
-    {"gate": "agent surface", "evidence": "MCP module imports without optional dependency and exposes bounded tool contracts when installed"},
+    {"gate": "agent surface", "evidence": "self-contained MCP server exposes bounded JSON-RPC tools without external MCP dependencies"},
     {"gate": "benchmark", "evidence": "benchmark suite writes JSON and Markdown artifacts and supports strict failure mode"},
     {"gate": "packaging", "evidence": "pyproject metadata, optional extras, console script, Dockerfile, and GitHub Action surface"},
 ]
@@ -105,12 +117,14 @@ def get_platform_manifest() -> dict[str, Any]:
         "surfaces": PLATFORM_SURFACES,
         "runtime_stack": RUNTIME_STACK,
         "use_cases": USE_CASES,
+        "mcp_tools": MCP_TOOLS,
         "proof_gates": PROOF_GATES,
         "install": {
-            "sdk": "pip install matdaemon",
-            "api": "pip install 'matdaemon[api]'",
-            "mcp": "pip install 'matdaemon[mcp]'",
-            "dev": "python -m pip install -e .[dev,api,mcp]",
+            "source": "git clone https://github.com/ItsNotAILABS/MatDaemon.git && cd MatDaemon && python -m pip install -e .",
+            "api": "python -m pip install -e .[api]",
+            "mcp": "python -m pip install -e .[mcp]",
+            "dev": "python -m pip install -e .[dev,api]",
+            "pypi_status": "PyPI publishing is pending; use source install until the first package release is uploaded.",
         },
         "operator_commands": {
             "serve_api": "matdaemon serve --host 0.0.0.0 --port 8000",
