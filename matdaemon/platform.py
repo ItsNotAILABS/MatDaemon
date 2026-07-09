@@ -16,7 +16,7 @@ def _package_version() -> str:
     try:
         return metadata.version("matdaemon")
     except metadata.PackageNotFoundError:
-        return "0.3.0"
+        return "0.3.1"
 
 
 MCP_TOOLS = [
