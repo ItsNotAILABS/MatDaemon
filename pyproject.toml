@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "matdaemon"
+version = "0.1.0"
+description = "High-performance matrix multiplication SDK and async daemon with CPU and optional CUDA backends."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "ItsNotAILABS"}]
+keywords = ["matrix", "numpy", "cuda", "agentic-ai", "daemon", "gemm"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Mathematics",
+]
+dependencies = ["numpy>=1.23"]
+
+[project.optional-dependencies]
+cuda = ["cupy-cuda12x>=12; platform_system != 'Darwin'"]
+dev = ["pytest>=7.4"]
+
+[project.scripts]
+matdaemon = "matdaemon.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ItsNotAILABS/MatDaemon"
+Repository = "https://github.com/ItsNotAILABS/MatDaemon"
+Issues = "https://github.com/ItsNotAILABS/MatDaemon/issues"
+
+[tool.setuptools.packages.find]
+include = ["matdaemon*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
