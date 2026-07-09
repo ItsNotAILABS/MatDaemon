@@ -19,13 +19,7 @@ def _cmd_matmul(args: argparse.Namespace) -> int:
     result = matmul(A, B, backend=args.backend)
     duration = time.perf_counter() - start
     np.save(args.output, result)
-    print(json.dumps({
-        "status": "ok",
-        "backend": args.backend,
-        "output": str(Path(args.output)),
-        "shape": list(result.shape),
-        "duration_seconds": round(duration, 6),
-    }, indent=2))
+    print(json.dumps({"status": "ok", "backend": args.backend, "output": str(Path(args.output)), "shape": list(result.shape), "duration_seconds": round(duration, 6)}, indent=2))
     return 0
 
 
@@ -39,14 +33,25 @@ def _cmd_benchmark(args: argparse.Namespace) -> int:
     start = time.perf_counter()
     result = matmul(A, B, backend=args.backend)
     duration = time.perf_counter() - start
-    print(json.dumps({
-        "status": "ok",
-        "backend": args.backend,
-        "a_shape": list(A.shape),
-        "b_shape": list(B.shape),
-        "output_shape": list(result.shape),
-        "duration_seconds": round(duration, 6),
-    }, indent=2))
+    print(json.dumps({"status": "ok", "backend": args.backend, "a_shape": list(A.shape), "b_shape": list(B.shape), "output_shape": list(result.shape), "duration_seconds": round(duration, 6)}, indent=2))
+    return 0
+
+
+def _cmd_serve(args: argparse.Namespace) -> int:
+    try:
+        import uvicorn
+    except Exception as exc:
+        raise RuntimeError("Install API support with `pip install matdaemon[api]`.") from exc
+    uvicorn.run("matdaemon.api:app", host=args.host, port=args.port, reload=args.reload)
+    return 0
+
+
+def _cmd_mcp(args: argparse.Namespace) -> int:
+    try:
+        from .mcp_server import main as run_mcp
+    except Exception as exc:
+        raise RuntimeError("Install MCP support with `pip install matdaemon[mcp]`.") from exc
+    run_mcp()
     return 0
 
 

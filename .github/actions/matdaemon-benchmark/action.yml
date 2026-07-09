@@ -1,0 +1,76 @@
+name: MatDaemon Benchmark
+
+description: Run MatDaemon benchmark profiles and upload JSON/Markdown-ready outputs.
+
+inputs:
+  profile:
+    description: Benchmark profile to run.
+    required: false
+    default: quick
+  backends:
+    description: Space-separated backend list.
+    required: false
+    default: numpy tiled
+  repetitions:
+    description: Repetitions per case.
+    required: false
+    default: "1"
+  python-version:
+    description: Python version.
+    required: false
+    default: "3.12"
+  output-dir:
+    description: Benchmark output directory.
+    required: false
+    default: matdaemon-benchmark-results
+  strict:
+    description: Fail if any benchmark case errors.
+    required: false
+    default: "true"
+
+outputs:
+  output-dir:
+    description: Directory containing benchmark-results.json and benchmark-results.md.
+    value: ${{ inputs.output-dir }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Resolve MatDaemon source root
+      id: source
+      shell: bash
+      run: |
+        ROOT="$(cd "${GITHUB_ACTION_PATH}/../../.." && pwd)"
+        echo "root=${ROOT}" >> "$GITHUB_OUTPUT"
+
+    - name: Install MatDaemon action package
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install "${{ steps.source.outputs.root }}"
+
+    - name: Run MatDaemon benchmark
+      shell: bash
+      run: |
+        STRICT_FLAG=""
+        if [ "${{ inputs.strict }}" = "true" ]; then
+          STRICT_FLAG="--strict"
+        fi
+        python "${{ steps.source.outputs.root }}/benchmarks/benchmark_suite.py" \
+          --profile "${{ inputs.profile }}" \
+          --backends ${{ inputs.backends }} \
+          --repetitions "${{ inputs.repetitions }}" \
+          --output "${{ inputs.output-dir }}" \
+          $STRICT_FLAG
+
+    - name: Append benchmark summary
+      shell: bash
+      run: |
+        if [ -f "${{ inputs.output-dir }}/benchmark-results.md" ]; then
+          cat "${{ inputs.output-dir }}/benchmark-results.md" >> "$GITHUB_STEP_SUMMARY"
+        fi
