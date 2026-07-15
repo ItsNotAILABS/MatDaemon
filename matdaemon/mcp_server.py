@@ -20,6 +20,7 @@ import numpy as np
 
 from .matdaemon import cuda_available, matmul, validate_matrices
 from .platform import get_platform_manifest
+from .text import hashing_embed, text_similarity_top_k
 from .use_cases import USE_CASES, get_use_case
 
 Backend = Literal["auto", "numpy", "tiled", "cuda"]
@@ -114,6 +115,34 @@ def tool_similarity_top_k(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def tool_embed_text(arguments: dict[str, Any]) -> dict[str, Any]:
+    vectors = hashing_embed(
+        arguments.get("texts", []),
+        dim=int(arguments.get("dim", 256)),
+        word_ngram=int(arguments.get("word_ngram", 1)),
+        char_ngram=int(arguments.get("char_ngram", 0)),
+        normalize=bool(arguments.get("normalize", True)),
+    )
+    return {
+        "vectors": vectors.tolist(),
+        "shape": list(vectors.shape),
+        "dim": int(arguments.get("dim", 256)),
+        "deterministic": True,
+    }
+
+
+def tool_text_similarity_top_k(arguments: dict[str, Any]) -> dict[str, Any]:
+    return text_similarity_top_k(
+        arguments.get("queries", []),
+        arguments.get("candidates", []),
+        k=int(arguments.get("k", 5)),
+        dim=int(arguments.get("dim", 256)),
+        word_ngram=int(arguments.get("word_ngram", 1)),
+        char_ngram=int(arguments.get("char_ngram", 0)),
+        backend=arguments.get("backend", "auto"),
+    )
+
+
 def tool_use_cases(arguments: dict[str, Any]) -> dict[str, Any]:
     use_case_id = arguments.get("id")
     if use_case_id:
@@ -183,6 +212,8 @@ TOOL_HANDLERS: dict[str, ToolHandler] = {
     "matdaemon_validate_matrices": tool_validate_matrices,
     "matdaemon_matmul": tool_matmul,
     "matdaemon_similarity_top_k": tool_similarity_top_k,
+    "matdaemon_embed_text": tool_embed_text,
+    "matdaemon_text_similarity_top_k": tool_text_similarity_top_k,
     "matdaemon_use_cases": tool_use_cases,
     "matdaemon_generate_api_payload": tool_generate_api_payload,
     "matdaemon_generate_github_action": tool_generate_github_action,
@@ -238,6 +269,40 @@ TOOLS: list[dict[str, Any]] = [
                 "queries": {"type": "array", "items": {"type": "array", "items": {"type": "number"}}},
                 "candidates": {"type": "array", "items": {"type": "array", "items": {"type": "number"}}},
                 "k": {"type": "integer", "minimum": 1, "default": 5},
+                "backend": {"type": "string", "enum": ["auto", "numpy", "tiled", "cuda"], "default": "auto"},
+            },
+            "required": ["queries", "candidates"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "matdaemon_embed_text",
+        "description": "Embed text into deterministic float vectors via the signed hashing trick (no model download, no network, reproducible across processes).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "texts": {"type": "array", "items": {"type": "string"}},
+                "dim": {"type": "integer", "minimum": 1, "default": 256},
+                "word_ngram": {"type": "integer", "minimum": 1, "default": 1},
+                "char_ngram": {"type": "integer", "minimum": 0, "default": 0},
+                "normalize": {"type": "boolean", "default": True},
+            },
+            "required": ["texts"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "matdaemon_text_similarity_top_k",
+        "description": "Rank candidate strings against query strings by lexical cosine similarity (hashing-embed + top-k in one call).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "queries": {"type": "array", "items": {"type": "string"}},
+                "candidates": {"type": "array", "items": {"type": "string"}},
+                "k": {"type": "integer", "minimum": 1, "default": 5},
+                "dim": {"type": "integer", "minimum": 1, "default": 256},
+                "word_ngram": {"type": "integer", "minimum": 1, "default": 1},
+                "char_ngram": {"type": "integer", "minimum": 0, "default": 0},
                 "backend": {"type": "string", "enum": ["auto", "numpy", "tiled", "cuda"], "default": "auto"},
             },
             "required": ["queries", "candidates"],

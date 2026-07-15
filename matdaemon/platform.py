@@ -25,6 +25,8 @@ MCP_TOOLS = [
     "matdaemon_validate_matrices",
     "matdaemon_matmul",
     "matdaemon_similarity_top_k",
+    "matdaemon_embed_text",
+    "matdaemon_text_similarity_top_k",
     "matdaemon_use_cases",
     "matdaemon_generate_api_payload",
     "matdaemon_generate_github_action",

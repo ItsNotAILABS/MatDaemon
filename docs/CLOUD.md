@@ -102,6 +102,16 @@ Call `matdaemon_validate_matrices` before execution to catch dimension mismatche
 
 Call `matdaemon_matmul` for direct matrix multiplication and `matdaemon_similarity_top_k` for embedding ranking.
 
+### Rank raw text without a separate embedding model
+
+Call `matdaemon_embed_text` to turn strings into deterministic float vectors (signed hashing trick — no model download, no network, reproducible across processes), or `matdaemon_text_similarity_top_k` to embed and rank candidate strings against queries in one call. The vectors are lexical (shared words / optional character n-grams), so this covers dedup, fuzzy record linking, and retrieval over short text; swap in neural embeddings via `matdaemon_similarity_top_k` when you need semantic matching — the ranking math is identical.
+
+```bash
+curl -X POST http://localhost:8000/v1/tools/matdaemon_text_similarity_top_k \
+  -H 'content-type: application/json' \
+  -d '{"arguments": {"queries": ["quarterly financials report"], "candidates": ["Q3 financial report", "website redesign"], "k": 1}}'
+```
+
 ### Generate integration artifacts
 
 Call `matdaemon_generate_api_payload` to create API request bodies and `matdaemon_generate_github_action` to create benchmark workflow snippets.
