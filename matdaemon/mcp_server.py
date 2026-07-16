@@ -21,6 +21,7 @@ import numpy as np
 from .matdaemon import cuda_available, matmul, validate_matrices
 from .platform import get_platform_manifest
 from .text import hashing_embed, text_similarity_top_k
+from .train import train_classifier
 from .use_cases import USE_CASES, get_use_case
 
 Backend = Literal["auto", "numpy", "tiled", "cuda"]
@@ -143,6 +144,19 @@ def tool_text_similarity_top_k(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def tool_train_classifier(arguments: dict[str, Any]) -> dict[str, Any]:
+    return train_classifier(
+        arguments.get("features", []),
+        arguments.get("labels", []),
+        model=arguments.get("model", "logistic_regression"),
+        epochs=int(arguments.get("epochs", 300)),
+        lr=float(arguments.get("lr", 0.1)),
+        hidden=int(arguments.get("hidden", 8)),
+        seed=int(arguments.get("seed", 0)),
+        backend=arguments.get("backend", "auto"),
+    )
+
+
 def tool_use_cases(arguments: dict[str, Any]) -> dict[str, Any]:
     use_case_id = arguments.get("id")
     if use_case_id:
@@ -214,6 +228,7 @@ TOOL_HANDLERS: dict[str, ToolHandler] = {
     "matdaemon_similarity_top_k": tool_similarity_top_k,
     "matdaemon_embed_text": tool_embed_text,
     "matdaemon_text_similarity_top_k": tool_text_similarity_top_k,
+    "matdaemon_train_classifier": tool_train_classifier,
     "matdaemon_use_cases": tool_use_cases,
     "matdaemon_generate_api_payload": tool_generate_api_payload,
     "matdaemon_generate_github_action": tool_generate_github_action,
@@ -306,6 +321,25 @@ TOOLS: list[dict[str, Any]] = [
                 "backend": {"type": "string", "enum": ["auto", "numpy", "tiled", "cuda"], "default": "auto"},
             },
             "required": ["queries", "candidates"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "matdaemon_train_classifier",
+        "description": "Train a real classifier (logistic regression or 1-hidden-layer MLP) by gradient descent, with every forward and backward pass running through matmul. Returns learned weights, the loss curve, and training accuracy.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "features": {"type": "array", "items": {"type": "array", "items": {"type": "number"}}},
+                "labels": {"type": "array", "items": {"type": "number"}},
+                "model": {"type": "string", "enum": ["logistic_regression", "mlp"], "default": "logistic_regression"},
+                "epochs": {"type": "integer", "minimum": 1, "default": 300},
+                "lr": {"type": "number", "default": 0.1},
+                "hidden": {"type": "integer", "minimum": 1, "default": 8},
+                "seed": {"type": "integer", "default": 0},
+                "backend": {"type": "string", "enum": ["auto", "numpy", "tiled", "cuda"], "default": "auto"},
+            },
+            "required": ["features", "labels"],
             "additionalProperties": False,
         },
     },

@@ -112,6 +112,16 @@ curl -X POST http://localhost:8000/v1/tools/matdaemon_text_similarity_top_k \
   -d '{"arguments": {"queries": ["quarterly financials report"], "candidates": ["Q3 financial report", "website redesign"], "k": 1}}'
 ```
 
+### Train a model on the matmul backend
+
+Call `matdaemon_train_classifier` to train a real classifier by gradient descent — logistic regression or a one-hidden-layer ReLU MLP — with every forward (`X @ W`) and backward (`X.T @ error`, `H.T @ delta`) pass running through matmul. It returns the learned weights, the loss curve, and training accuracy. Training is seeded and reproducible; sizes are capped so it stays a bounded compute surface. Pure NumPy — no autograd framework, no downloaded weights.
+
+```bash
+curl -X POST http://localhost:8000/v1/tools/matdaemon_train_classifier \
+  -H 'content-type: application/json' \
+  -d '{"arguments": {"features": [[0,0],[0,1],[1,0],[1,1]], "labels": [0,1,1,0], "model": "mlp", "epochs": 2000, "hidden": 8}}'
+```
+
 ### Generate integration artifacts
 
 Call `matdaemon_generate_api_payload` to create API request bodies and `matdaemon_generate_github_action` to create benchmark workflow snippets.
@@ -131,3 +141,4 @@ MatDaemon tools do not execute shell commands, read arbitrary files, mutate repo
 - **CI Benchmark Suite:** generated GitHub Action plus Markdown/JSON artifacts.
 - **Cloud Tool Gateway:** `/v1/tools` for hosted agents that cannot use stdio MCP.
 - **GPU Proof Suite:** backend inspection plus CUDA benchmark profile on GPU runners.
+- **Model Training Suite:** `train_classifier` runs real gradient-descent training (logistic regression, MLP) with forward and backward passes on the matmul backend — the same engine can serve as an in-boundary trainer, not just an inference primitive.
