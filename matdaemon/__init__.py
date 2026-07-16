@@ -17,6 +17,7 @@ from .matdaemon import (
 )
 from .platform import PLATFORM_SURFACES, get_platform_manifest
 from .text import hashing_embed, text_similarity_top_k
+from .train import train_classifier, train_logistic_regression, train_mlp
 
 __version__ = "0.3.2"
 
@@ -37,5 +38,8 @@ __all__ = [
     "register_signal_handler",
     "resolve_backend",
     "text_similarity_top_k",
+    "train_classifier",
+    "train_logistic_regression",
+    "train_mlp",
     "validate_matrices",
 ]
