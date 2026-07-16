@@ -122,6 +122,16 @@ curl -X POST http://localhost:8000/v1/tools/matdaemon_train_classifier \
   -d '{"arguments": {"features": [[0,0],[0,1],[1,0],[1,1]], "labels": [0,1,1,0], "model": "mlp", "epochs": 2000, "hidden": 8}}'
 ```
 
+### Train a mixture-of-experts (small specialists + a router)
+
+Call `matdaemon_train_mixture` to train the "many small specialists + one orchestrator" pattern: a softmax router plus one small expert (MLP or logistic head) per domain, all on the matmul backend. Each expert only has to be good at its own domain; the router decides which expert handles each input. Pass `features`, `labels`, and integer `domains`; it returns overall accuracy, routing accuracy, and expert count. Experts can be retrained or swapped independently of each other and of the router.
+
+```bash
+curl -X POST http://localhost:8000/v1/tools/matdaemon_train_mixture \
+  -H 'content-type: application/json' \
+  -d '{"arguments": {"features": [[-3,-3,0.5,0.1],[3,3,0.2,0.6]], "labels": [1,1], "domains": [0,1], "expert": "mlp"}}'
+```
+
 ### Generate integration artifacts
 
 Call `matdaemon_generate_api_payload` to create API request bodies and `matdaemon_generate_github_action` to create benchmark workflow snippets.
@@ -141,4 +151,5 @@ MatDaemon tools do not execute shell commands, read arbitrary files, mutate repo
 - **CI Benchmark Suite:** generated GitHub Action plus Markdown/JSON artifacts.
 - **Cloud Tool Gateway:** `/v1/tools` for hosted agents that cannot use stdio MCP.
 - **GPU Proof Suite:** backend inspection plus CUDA benchmark profile on GPU runners.
+- **Mixture-of-Experts Suite:** `train_mixture` builds a router plus small specialist models (each trained/swappable independently) on the matmul backend — a native "small models + orchestrator" architecture, no external LLM dependency.
 - **Model Training Suite:** `train_classifier` runs real gradient-descent training (logistic regression, MLP) with forward and backward passes on the matmul backend — the same engine can serve as an in-boundary trainer, not just an inference primitive.

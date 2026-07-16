@@ -19,6 +19,7 @@ from typing import Any, Callable, Literal
 import numpy as np
 
 from .matdaemon import cuda_available, matmul, validate_matrices
+from .moe import MixtureOfExperts
 from .platform import get_platform_manifest
 from .text import hashing_embed, text_similarity_top_k
 from .train import train_classifier
@@ -157,6 +158,23 @@ def tool_train_classifier(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def tool_train_mixture(arguments: dict[str, Any]) -> dict[str, Any]:
+    features = arguments.get("features", [])
+    labels = arguments.get("labels", [])
+    domains = arguments.get("domains", [])
+    moe = MixtureOfExperts(
+        expert=arguments.get("expert", "mlp"),
+        hidden=int(arguments.get("hidden", 8)),
+        expert_epochs=int(arguments.get("expert_epochs", 1200)),
+        router_epochs=int(arguments.get("router_epochs", 400)),
+        lr=float(arguments.get("lr", 0.3)),
+        seed=int(arguments.get("seed", 0)),
+        backend=arguments.get("backend", "auto"),
+    )
+    moe.fit(features, labels, domains)
+    return moe.evaluate(features, labels, domains)
+
+
 def tool_use_cases(arguments: dict[str, Any]) -> dict[str, Any]:
     use_case_id = arguments.get("id")
     if use_case_id:
@@ -229,6 +247,7 @@ TOOL_HANDLERS: dict[str, ToolHandler] = {
     "matdaemon_embed_text": tool_embed_text,
     "matdaemon_text_similarity_top_k": tool_text_similarity_top_k,
     "matdaemon_train_classifier": tool_train_classifier,
+    "matdaemon_train_mixture": tool_train_mixture,
     "matdaemon_use_cases": tool_use_cases,
     "matdaemon_generate_api_payload": tool_generate_api_payload,
     "matdaemon_generate_github_action": tool_generate_github_action,
@@ -340,6 +359,27 @@ TOOLS: list[dict[str, Any]] = [
                 "backend": {"type": "string", "enum": ["auto", "numpy", "tiled", "cuda"], "default": "auto"},
             },
             "required": ["features", "labels"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "matdaemon_train_mixture",
+        "description": "Train a mixture-of-experts: a softmax router plus one small expert (MLP or logistic) per domain, all on the matmul backend. Returns overall accuracy, routing accuracy, and expert count.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "features": {"type": "array", "items": {"type": "array", "items": {"type": "number"}}},
+                "labels": {"type": "array", "items": {"type": "number"}},
+                "domains": {"type": "array", "items": {"type": "integer"}},
+                "expert": {"type": "string", "enum": ["mlp", "logistic_regression"], "default": "mlp"},
+                "hidden": {"type": "integer", "minimum": 1, "default": 8},
+                "expert_epochs": {"type": "integer", "minimum": 1, "default": 1200},
+                "router_epochs": {"type": "integer", "minimum": 1, "default": 400},
+                "lr": {"type": "number", "default": 0.3},
+                "seed": {"type": "integer", "default": 0},
+                "backend": {"type": "string", "enum": ["auto", "numpy", "tiled", "cuda"], "default": "auto"},
+            },
+            "required": ["features", "labels", "domains"],
             "additionalProperties": False,
         },
     },

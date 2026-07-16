@@ -28,6 +28,7 @@ MCP_TOOLS = [
     "matdaemon_embed_text",
     "matdaemon_text_similarity_top_k",
     "matdaemon_train_classifier",
+    "matdaemon_train_mixture",
     "matdaemon_use_cases",
     "matdaemon_generate_api_payload",
     "matdaemon_generate_github_action",
