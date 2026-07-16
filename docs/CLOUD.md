@@ -112,6 +112,16 @@ curl -X POST http://localhost:8000/v1/tools/matdaemon_text_similarity_top_k \
   -d '{"arguments": {"queries": ["quarterly financials report"], "candidates": ["Q3 financial report", "website redesign"], "k": 1}}'
 ```
 
+### Run physics algorithms
+
+Call `matdaemon_physics_algorithms` to enumerate the physics registry (24 formulas: N-body gravity/Coulomb, Lennard-Jones, RBF kernel, Coulomb-matrix descriptor, structure factor, Ising/Boltzmann/partition function, heat/wave/Poisson PDE steps, 1D Schrodinger, tight-binding, density-matrix expectation, 3D rotation, stress-tensor rotation, state-space/Verlet/Kalman dynamics, and more). Each entry gives the closed-form equation, the matrix form it reduces to, and the role matmul plays. Twenty-one ship as verified reference implementations; run the flagship compute primitives directly via `matdaemon_pairwise_distances` (the Gram-matrix many-body kernel), `matdaemon_ising_energy`, and `matdaemon_boltzmann_distribution`.
+
+```bash
+curl -X POST http://localhost:8000/v1/tools/matdaemon_pairwise_distances \
+  -H 'content-type: application/json' \
+  -d '{"arguments": {"points": [[0, 0], [3, 0], [0, 4]]}}'
+```
+
 ### Generate integration artifacts
 
 Call `matdaemon_generate_api_payload` to create API request bodies and `matdaemon_generate_github_action` to create benchmark workflow snippets.
@@ -131,3 +141,4 @@ MatDaemon tools do not execute shell commands, read arbitrary files, mutate repo
 - **CI Benchmark Suite:** generated GitHub Action plus Markdown/JSON artifacts.
 - **Cloud Tool Gateway:** `/v1/tools` for hosted agents that cannot use stdio MCP.
 - **GPU Proof Suite:** backend inspection plus CUDA benchmark profile on GPU runners.
+- **Physics Compute Suite:** `physics_algorithms` registry plus matmul-backed N-body, PDE, spin-system, quantum, and dynamics primitives for simulation workers and ML-for-science features.

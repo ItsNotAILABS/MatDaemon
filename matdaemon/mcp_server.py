@@ -19,6 +19,13 @@ from typing import Any, Callable, Literal
 import numpy as np
 
 from .matdaemon import cuda_available, matmul, validate_matrices
+from .physics import (
+    PHYSICS_ALGORITHMS,
+    boltzmann_distribution,
+    get_physics_algorithm,
+    ising_energy,
+    pairwise_distances,
+)
 from .platform import get_platform_manifest
 from .text import hashing_embed, text_similarity_top_k
 from .use_cases import USE_CASES, get_use_case
@@ -153,6 +160,37 @@ def tool_use_cases(arguments: dict[str, Any]) -> dict[str, Any]:
     return {"use_cases": USE_CASES}
 
 
+def tool_physics_algorithms(arguments: dict[str, Any]) -> dict[str, Any]:
+    algorithm_id = arguments.get("id")
+    if algorithm_id:
+        algorithm = get_physics_algorithm(str(algorithm_id))
+        if algorithm is None:
+            raise ValueError(f"Unknown physics algorithm: {algorithm_id}")
+        return {"algorithm": algorithm}
+    return {"algorithms": PHYSICS_ALGORITHMS, "count": len(PHYSICS_ALGORITHMS)}
+
+
+def tool_pairwise_distances(arguments: dict[str, Any]) -> dict[str, Any]:
+    backend = arguments.get("backend", "auto")
+    dist = pairwise_distances(arguments.get("points", []), backend=backend)
+    return {"distances": dist.tolist(), "shape": list(dist.shape), "backend": backend}
+
+
+def tool_ising_energy(arguments: dict[str, Any]) -> dict[str, Any]:
+    energy = ising_energy(
+        arguments.get("spins", []),
+        arguments.get("adjacency", []),
+        coupling=float(arguments.get("coupling", 1.0)),
+        field=float(arguments.get("field", 0.0)),
+    )
+    return {"energy": energy}
+
+
+def tool_boltzmann_distribution(arguments: dict[str, Any]) -> dict[str, Any]:
+    probs = boltzmann_distribution(arguments.get("energies", []), kt=float(arguments.get("kt", 1.0)))
+    return {"probabilities": probs.tolist()}
+
+
 def tool_generate_api_payload(arguments: dict[str, Any]) -> dict[str, Any]:
     return {
         "endpoint": "/v1/jobs/matmul" if arguments.get("async_job", True) else "/v1/matmul",
@@ -215,6 +253,10 @@ TOOL_HANDLERS: dict[str, ToolHandler] = {
     "matdaemon_embed_text": tool_embed_text,
     "matdaemon_text_similarity_top_k": tool_text_similarity_top_k,
     "matdaemon_use_cases": tool_use_cases,
+    "matdaemon_physics_algorithms": tool_physics_algorithms,
+    "matdaemon_pairwise_distances": tool_pairwise_distances,
+    "matdaemon_ising_energy": tool_ising_energy,
+    "matdaemon_boltzmann_distribution": tool_boltzmann_distribution,
     "matdaemon_generate_api_payload": tool_generate_api_payload,
     "matdaemon_generate_github_action": tool_generate_github_action,
     "matdaemon_smoke_benchmark": tool_smoke_benchmark,
@@ -313,6 +355,52 @@ TOOLS: list[dict[str, Any]] = [
         "name": "matdaemon_use_cases",
         "description": "List all AI use cases, or fetch one use case by id.",
         "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}}, "additionalProperties": False},
+    },
+    {
+        "name": "matdaemon_physics_algorithms",
+        "description": "List the physics algorithm registry (formula, matrix form, and matmul role for each), or fetch one by id.",
+        "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}}, "additionalProperties": False},
+    },
+    {
+        "name": "matdaemon_pairwise_distances",
+        "description": "Euclidean distance matrix of a point cloud via the Gram-matrix matmul identity (many-body / N-body primitive).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "points": {"type": "array", "items": {"type": "array", "items": {"type": "number"}}},
+                "backend": {"type": "string", "enum": ["auto", "numpy", "tiled", "cuda"], "default": "auto"},
+            },
+            "required": ["points"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "matdaemon_ising_energy",
+        "description": "Ising Hamiltonian energy E = -J/2 s^T A s - h sum(s) for a spin configuration on an adjacency matrix.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "spins": {"type": "array", "items": {"type": "number"}},
+                "adjacency": {"type": "array", "items": {"type": "array", "items": {"type": "number"}}},
+                "coupling": {"type": "number", "default": 1.0},
+                "field": {"type": "number", "default": 0.0},
+            },
+            "required": ["spins", "adjacency"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "matdaemon_boltzmann_distribution",
+        "description": "Boltzmann occupation probabilities p_i = exp(-E_i/kT)/Z for a set of energy levels.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "energies": {"type": "array", "items": {"type": "number"}},
+                "kt": {"type": "number", "default": 1.0},
+            },
+            "required": ["energies"],
+            "additionalProperties": False,
+        },
     },
     {
         "name": "matdaemon_generate_api_payload",
