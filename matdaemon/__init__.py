@@ -15,6 +15,7 @@ from .matdaemon import (
     resolve_backend,
     validate_matrices,
 )
+from .moe import MixtureOfExperts, make_regional_tasks, train_softmax_router
 from .platform import PLATFORM_SURFACES, get_platform_manifest
 from .text import hashing_embed, text_similarity_top_k
 from .train import train_classifier, train_logistic_regression, train_mlp
